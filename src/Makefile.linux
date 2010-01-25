@@ -1,0 +1,29 @@
+CC = gcc
+CFLAGS = -Wall -O3 -funroll-loops -DNDEBUG -fomit-frame-pointer -std=c99
+#CFLAGS = -std=c99 -Wall -g -std=gnu99
+#CFLAGS = -g -pg -std=c99
+CFLAGSSFMT = -msse2 -DHAVE_SSE2 -O9 -finline-functions -fomit-frame-pointer \
+-DNDEBUG -fno-strict-aliasing --param max-inline-insns-single=1800 -std=c99
+LD = ld
+LDFLAGS =  -lm -lc -lblas -llapack
+INCFLAGS = 
+DEFINES = -DUSEFLOAT -D_GNU_SOURCE
+objects =  sfmt.o matrix.o nuc.o intensities.o normal.o weibull.o sequence.o mystring.o main.o
+
+simNGS: $(objects)
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(LDFLAGS) $(objects)
+
+.c.o:
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o $@ -c $<
+
+.f.o:
+	g77 -O3 -o $@ -c $<
+
+clean:
+	rm -f *~ *.o  *.obj  *.exe *.lib  && cd SFMT-src-1.3 && make clean
+
+sfmt.o: 
+	gcc -o sfmt.o $(CFLAGSSFMT) -DMEXP=19937 -ISFMT-src-1.3/ -c SFMT-src-1.3/SFMT.c
+
+archive:
+	make clean && cd ../.. && tar zcf simngs.tgz --exclude=.git --exclude=bin --exclude=archive --exclude=test simNGS
