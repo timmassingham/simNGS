@@ -153,9 +153,18 @@ MODEL new_MODEL_from_fp( FILE * fp){
     char c = fgetc(fp); ungetc(c,fp);
     if ( '#'==c){
         size_t len = 0;
-        char * ln = fgetln(fp,&len);
+        char * ln = NULL;
+        #ifdef  _GNU_SOURCE
+        getline(&ln,&len,fp);
+        #else
+        ln = fgetln(fp,&len);
+        #endif
+
         label = calloc(len+1,sizeof(char));
         memcpy(label,ln,len*sizeof(char));
+        #ifdef _GNU_SOURCE
+        free(ln);
+        #endif
     }
     unsigned int lane,tile;
     fscanf(fp,"%u %u",&lane,&tile);
