@@ -9,7 +9,7 @@
 #include <errno.h>
 
 
-#define safe_free(A) { if(NULL==(A)){free(A);} (A)=NULL; }
+#define safe_free(A) { if(NULL!=(A)){free(A);} (A)=NULL; }
 
 
 #ifdef FAILEARLY
