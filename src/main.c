@@ -150,7 +150,7 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
         switch(ch){
         case 'c':   sscanf(optarg,"%u",&simopt->ncycle);
                     break;
-        case 'l':   sscanf(optarg,"%lf,%lf",&simopt->shape,&simopt->scale);
+        case 'l':   sscanf(optarg,real_format_str "," real_format_str ,&simopt->shape,&simopt->scale);
                     break;
         case 'p':   simopt->paired = parse_bool(optarg);
                     simopt->paired_set = true;
