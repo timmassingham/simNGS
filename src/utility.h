@@ -1,24 +1,12 @@
 #ifndef _UTILITY_H
 #define _UTILITY_H
 
-#ifndef _STDLIB_H
 #include <stdlib.h>
-#endif
-#ifndef _STDIO_H
 #include <stdio.h>
-#endif
-#ifndef _STDINT_H
 #include <stdint.h>
-#endif
-#ifndef _STDBOOL_H
 #include <stdbool.h>
-#endif
-#ifndef _ERR_H
 #include <err.h>
-#endif
-#ifndef _SYS_ERRNO_H_
 #include <errno.h>
-#endif
 
 
 #define safe_free(A) { if(NULL==(A)){free(A);} (A)=NULL; }
@@ -86,7 +74,7 @@ BASIC_INTERFACE(real_t);
 // Simple strings
 typedef char * CSTRING;
 CSTRING new_CSTRING(const size_t len);
-void free_CSTRING(void);
+void free_CSTRING(CSTRING cstr);
 CSTRING copy_CSTRING(const CSTRING cstr);
 void show_CSTRING(FILE *fp, const CSTRING cstr);
 

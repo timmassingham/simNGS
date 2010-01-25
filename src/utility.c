@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
 #include "utility.h"
 
 /* Basic functions for basic generic type */
@@ -11,13 +12,13 @@
 _FREE(char)
 _COPY(char)
 char new_char( void ){ return 0;}
-void show_char( FILE * fp, const char c){ fputc(fp,c); }
+void show_char( FILE * fp, const char c){ fputc(c,fp); }
 
 /* bool */
 _FREE(bool)
 _COPY(bool)
 bool new_bool( void ){ return 0;}
-void show_bool( FILE * fp, const bool c){ fprintf(fp,(c==true)?"true":false); }
+void show_bool( FILE * fp, const bool c){ fprintf(fp,(c==true)?"true":"false"); }
 
 /* int */
 _FREE(int)
