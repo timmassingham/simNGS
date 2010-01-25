@@ -234,7 +234,8 @@ int main( int argc, char * argv[] ){
     MAT intensities = NULL, intensities2 = NULL;
     MAT loglike = NULL, loglike2=NULL;
     SEQ seq = NULL;
-    while ((seq=sequence_from_fasta(stdin))!=NULL){
+    FILE * fp = stdin;//fopen("../test/test100.fa","r");
+    while ((seq=sequence_from_fasta(fp))!=NULL){
         //show_SEQ(stderr,seq);
         if ( seq->length < model->ncycle ){
             fprintf(stderr,"Sequence %s shorter than number of cycles, skipping\n",seq->name);
@@ -258,6 +259,12 @@ int main( int argc, char * argv[] ){
         fputc('\n',stdout);
         free_SEQ(seq);
     }
+    free_MAT(loglike2);
+    free_MAT(intensities2);
+    free_MAT(loglike);
+    free_MAT(intensities);
+    free_MODEL(model);
+    free_SIMOPT(simopt);
     return EXIT_SUCCESS;
 }
 
