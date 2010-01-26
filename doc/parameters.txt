@@ -1,0 +1,81 @@
+                     Command-line Options for simNGS
+
+** Usage
+
+	simNGS [-b shape,scale][-c ncycles] [-l lane] [-p] [-r mu]
+	       [-s seed] [-t tile] [-u] [-v factor ] runfile
+	simNGS --help
+
+
+** Detailed description
+
+-b, --brightness shape,scale [default: as runfile]
+	Set parameters for the distribution of cluster brightness. The cluster
+brightness represents the combination of the incident intensity of the laser on
+the each cluster and the number of fluropores emitting (roughly the size of the
+cluster). The distribution of brightness is modelled as a Weibull distribution
+with given shape and scale, real valued numbers greater than zero, with mean and
+variance:
+	Mean:      scale \Gamma( 1 + 1/shape)
+	Variance:  scale^2 \Gamma( 1 + 2/shape ) - mean^2
+where \Gamma is the Gamma function.
+
+
+-c, --cycles ncycle [default: as runfile]
+	Number of cycles to generate likelihoods for, up to maximum allowed in
+the runfile. If more cycles are asked for than allowed, a warning is printed and
+the number of cycles outputted is restricted to number specificed in the 
+runfile.
+
+
+-l, --lane lane [default: as runfile]
+	Set lane number in the output to "lane". Lane number must be greater
+than zero but need not be a number valid for a real machine.
+
+
+-p, --paired
+	Treat run as paired-end. For single-ended runs treated as paired, the 
+covariance matrix is duplicated to make two uncorrelated pairs with identical
+error characteristics. For paired-end runs treated as single, the second end is
+ignored. The covariance matrices for the ends of a paired-end run were estimated
+and stored separately, implying an assumption of independence between the two
+ends. The brightness of the cluster is assumed to be equal for both ends, which 
+can be changed using the "--unequal" option.
+
+
+-r, --robust mu [default: 0.]
+	Output robustified likelihood, equivalent to adding mu to the likelihood
+of every call. "mu" should be a real number greater than zero. The default for 
+simNGS is to produce raw likelihoods so errors outside the scope of the base 
+calling can be modelled elsewhere; the default for the AYB base calling software
+uses a value of 1e-5 to compensate for unmodelled effects like "dust" on the 
+slide or sample preparation errors.
+
+The consequences of adding a "mu" is to bound the maximum possible likelihood-
+ratio statistic, and so the quality of the call, and to pull extremely small 
+likelihoods where the statistical model does fit the observation for any 
+possible base call back towards equi-probable. The theory behind this is 
+consider the observation to be a mixture of the model and small proportion of
+contaminant, then define the robustified likelihood to be the supremum over all
+possible contaminants (i.e. allow the contaminant to be the worst possible).
+
+
+-s, --seed seed [default: clock]
+	Seed used to set random number generator. Where no seed is given, it is
+initialised from the clock of the machine and written to stderr. Care should be 
+taken if multiple jobs are started simultaneously, on a farm with synchronised 
+clocks for example, and an explicit seed is not set.
+
+
+-t, --tile tile [default: as runfile]
+	Set tile number in the output to "tile". Tile number must be greater
+than zero but need not be a number valid for a real machine.
+
+-u, --unequal
+	Cluster brightness for pair-end data is not considered to be equal for
+both ends. The brightness of each end is sampled independently.
+
+
+-v, --variance factor [default: 1.0]
+	Factor with which to scale variance matrix by and so increase or
+decrease the amount of background noise generated.
