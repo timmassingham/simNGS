@@ -335,3 +335,12 @@ cleanup:
     safe_free(mats);
     return NULL;
 }
+
+MAT scale_MAT(MAT mat, const real_t f){
+    validate(NULL!=mat,NULL);
+    const uint32_t nelt = mat->ncol * mat->nrow;
+    for ( uint32_t elt=0 ; elt<nelt ; elt++){
+            mat->x[elt] *= f;
+    }
+    return mat;
+}

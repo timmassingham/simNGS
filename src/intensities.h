@@ -34,8 +34,8 @@ MODEL trim_MODEL(const uint32_t ncycle, const MODEL model);
 MODEL new_MODEL_from_fp( FILE * fp );
 MODEL new_MODEL_from_file( const CSTRING filename);
 
-MAT generate_pure_intensities ( const real_t lambda, const NUC * seq, const uint32_t ncycle, const MAT chol, MAT ints);
-MAT likelihood_cycle_intensities ( const real_t lambda, const MAT ints, const MAT invchol[], MAT like);
+MAT generate_pure_intensities ( const real_t varfact, const real_t lambda, const NUC * seq, const uint32_t ncycle, const MAT chol, MAT ints);
+MAT likelihood_cycle_intensities ( const real_t varfact, const real_t lambda, const MAT ints, const MAT invchol[], MAT like);
 void fprint_intensities(FILE * fp, const char * prefix, const MAT ints, const bool last);
 
 #endif

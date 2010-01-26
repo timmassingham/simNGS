@@ -212,7 +212,7 @@ MODEL new_MODEL_from_file( const CSTRING filename ){
 }
 
 
-MAT generate_pure_intensities ( const real_t lambda, const NUC * seq, const uint32_t ncycle, const MAT chol, MAT ints){
+MAT generate_pure_intensities ( const real_t sdfact, const real_t lambda, const NUC * seq, const uint32_t ncycle, const MAT chol, MAT ints){
     validate(NULL!=seq,NULL);
     validate(NULL!=chol,NULL);
     if(NULL==ints){
@@ -222,6 +222,7 @@ MAT generate_pure_intensities ( const real_t lambda, const NUC * seq, const uint
     
     rmultinorm(NULL,chol,NBASE*ncycle,ints);
     reshape_MAT(ints,NBASE);
+    if(1.0!=sdfact){scale_MAT(ints,sdfact);}
     for ( uint32_t i=0 ; i<ncycle ; i++){
         // Assume that ambiguity in the sequence is a no call
         if ( NUC_AMBIG != seq[i]){
@@ -240,7 +241,7 @@ real_t lss ( const MAT x, const MAT invVchol ){
     validate(NULL!=x,NAN);
     validate(NULL!=invVchol,NAN);
     validate(invVchol->nrow==invVchol->ncol,NAN);
-    validate(x->nrow== invVchol->ncol,NAN);
+    validate(x->nrow==invVchol->ncol,NAN);
 
     // Form x^t invVchol invVchol^t x, noting that invVchol is lower diagonal
     const uint32_t n=x->nrow;    
@@ -256,7 +257,7 @@ real_t lss ( const MAT x, const MAT invVchol ){
 }
     
     
-MAT likelihood_cycle_intensities ( const real_t lambda, const MAT ints, const MAT * invchol, MAT like){
+MAT likelihood_cycle_intensities ( const real_t sdfact, const real_t lambda, const MAT ints, const MAT * invchol, MAT like){
     validate(NULL!=ints,NULL);
     validate(NULL!=invchol,NULL);
     const uint32_t ncycle = ints->ncol;
@@ -271,7 +272,8 @@ MAT likelihood_cycle_intensities ( const real_t lambda, const MAT ints, const MA
         for ( int j=0 ; j<NBASE ; j++){
             memcpy(tmp->x,ints->x+i*NBASE,NBASE*sizeof(real_t));
             tmp->x[j] -= lambda;
-            like->x[i*NBASE+j] = dchisq4(lss(tmp,invchol[i]));
+            like->x[i*NBASE+j] = dchisq4(lss(tmp,invchol[i])/(sdfact*sdfact));
+            // Note: dmultinorm needs updating to include sdfact if to be used again
             //like->x[i*NBASE+j] = dmultinorm(tmp,NULL,invchol[i],NBASE,true);
         }
     }

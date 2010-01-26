@@ -21,7 +21,7 @@ void fprint_usage( FILE * fp){
 "\n"
 "Usage:\n"
 "\tsimNGS [-c ncycle] [-l shape,scale] [-p on|off] [-r mu]\n"
-"\t       [-s seed] runfile\n"
+"\t         [-s seed] [-v factor ] runfile\n"
 "\tsimNGS --help\n"
 "simNGS reads from stdin and writes to stdout, messages and progess\n"
 "indicators are written to stderr.\n"
@@ -35,14 +35,17 @@ void fprint_help( FILE * fp){
 12345678901234567890123456789012345678901234567890123456789012345678901234567890
 */
 "\n"
+"-b, --brightness shape,scale [default: as runfile]\n"
+"\tShape and scale of cluster brightnes distribution.\n"
+"Currently a Weibull distribution is used.\n"
+"\n"
 "-c, --cycles ncycle [default: as runfile]\n"
 "\tNumber of cycles to do, up to maximum allowed for runfile.\n"
 "\n"
-"-l, --lambda shape,scale [default: as runfile]\n"
-"\tShape and scale of cluster brightness distribution (lambda).\n"
-"Currently a Weibull distribution is used.\n"
+"-l, --lane lane [default: as runfile]\n"
+"\tSet lane number\n"
 "\n"
-"-p, --paired on|off [default: as runfile]\n"
+"-p, --paired on|off [default: off]\n"
 "\tTreat run as paired-end or not. For single-ended runs treated as\n"
 "paired, the covariance matrix is duplicated to make two uncorrelated pairs.\n"
 "For paired-end runs treated as single, the second end is ignored.\n"
@@ -53,15 +56,24 @@ void fprint_help( FILE * fp){
 "\n"
 "-s, --seed seed [default: clock]\n"
 "\tSet seed from random number generator.\n"
+"\n"
+"-t, --tile tile [default: as runfile\n"
+"\tSet tile number.\n"
+"\n"
+"-v, --variance factor [default: 1.0]\n"
+"\tFactor with which to scale variance matrix by.\n"
 , fp);
 }
 
 static struct option longopts[] = {
+    { "brightness", required_argument, NULL, 'b' },
     { "cycles",     required_argument, NULL, 'c' },
-    { "lambda",     required_argument, NULL, 'l' },
+    { "lane",       required_argument, NULL, 'l' },
     { "paired",     required_argument, NULL, 'p' },
     { "robust",     required_argument, NULL, 'r' },
     { "seed",       required_argument, NULL, 's' },
+    { "tile",       required_argument, NULL, 't' },
+    { "variance",   required_argument, NULL, 'v' },
     { "help",       no_argument,       NULL, 'h' }
 };
 
@@ -97,9 +109,10 @@ unsigned int parse_uint( const CSTRING str){
 typedef struct {
     unsigned int ncycle;
     real_t shape,scale;
-    bool paired,paired_set;
-    real_t mu;
+    bool paired;
+    real_t mu,sdfact;
     uint32_t seed;
+    uint32_t tile,lane;
 } * SIMOPT;
 
 SIMOPT new_SIMOPT(void){
@@ -109,9 +122,12 @@ SIMOPT new_SIMOPT(void){
     opt->ncycle = 0;
     opt->shape = 0.0;
     opt->scale = 0.0;
-    opt->paired_set = false;
+    opt->paired = false;
     opt->mu = 0.0;
     opt->seed = 0;
+    opt->sdfact = 1.0;
+    opt->tile = 0;
+    opt->lane = 0;    
     
     return opt;
 }
@@ -138,6 +154,8 @@ void show_SIMOPT (FILE * fp, const SIMOPT simopt){
     fprintf( fp,"mu\t%f\n",simopt->mu);
     fprintf( fp,"shape\t%f\n",simopt->shape);
     fprintf( fp,"scale\t%f\n",simopt->scale);
+    fprintf( fp,"variance factor\t%f\n",simopt->sdfact*simopt->sdfact);
+    fprintf( fp,"tile\t%u\tlane%u\n",simopt->tile,simopt->lane);
     fprintf( fp,"seed\t%u\n",simopt->seed);
 }
 
@@ -146,18 +164,23 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
     SIMOPT simopt = new_SIMOPT();
     validate(NULL!=simopt,NULL);
     
-    while ((ch = getopt_long(argc, argv, "c:l:p:r:s:h", longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "b:c:l:p:r:s:t:v:h", longopts, NULL)) != -1){
         switch(ch){
+        case 'b':   sscanf(optarg,real_format_str "," real_format_str ,&simopt->shape,&simopt->scale);
+                    break;
         case 'c':   sscanf(optarg,"%u",&simopt->ncycle);
                     break;
-        case 'l':   sscanf(optarg,real_format_str "," real_format_str ,&simopt->shape,&simopt->scale);
+        case 'l':   simopt->lane = parse_uint(optarg);
                     break;
         case 'p':   simopt->paired = parse_bool(optarg);
-                    simopt->paired_set = true;
                     break;
         case 'r':   simopt->mu = parse_real(optarg);
                     break;
         case 's':   simopt->seed = parse_uint(optarg);
+                    break;
+        case 't':   simopt->tile = parse_uint(optarg);
+                    break;
+        case 'v':   simopt->sdfact = sqrt(parse_real(optarg));
                     break;
         case 'h':
             fprint_help(stderr);
@@ -184,13 +207,15 @@ int main( int argc, char * argv[] ){
 
     // Load up model
     MODEL model = new_MODEL_from_file(argv[0]);
+    
     // Resolve options and model
+    // Should factor out into separate routine
     if(simopt->shape!=0){ model->shape = simopt->shape;}
     simopt->shape = model->shape;
     if(simopt->scale!=0){ model->scale = simopt->scale;}
     simopt->scale = model->scale;
     
-    if(simopt->paired_set && (simopt->paired!=model->paired)){
+    if(simopt->paired!=model->paired){
         if(simopt->paired==false){
             model->paired = false;
             free_MAT(model->cov2);
@@ -217,7 +242,11 @@ int main( int argc, char * argv[] ){
         }
     }
     simopt->ncycle = model->ncycle;
-    
+    if(0!=simopt->lane){ model->lane = simopt->lane;}
+    if(0!=simopt->tile){ model->tile = simopt->tile;}
+    simopt->tile = model->tile;
+    simopt->lane = model->lane;
+
     
     // Initialise random number generator
     if ( simopt->seed==0 ){
@@ -235,6 +264,7 @@ int main( int argc, char * argv[] ){
     MAT loglike = NULL, loglike2=NULL;
     SEQ seq = NULL;
     FILE * fp = stdin;//fopen("../test/test100.fa","r");
+    uint32_t seq_count = 0;
     while ((seq=sequence_from_fasta(fp))!=NULL){
         //show_SEQ(stderr,seq);
         if ( seq->length < model->ncycle ){
@@ -243,22 +273,25 @@ int main( int argc, char * argv[] ){
             continue;
         }
         real_t lambda = rweibull(model->shape,model->scale);
-        intensities = generate_pure_intensities(lambda,seq->seq,model->ncycle,model->chol1,intensities);
-        loglike = likelihood_cycle_intensities(lambda,intensities,model->invchol1,loglike);
+        intensities = generate_pure_intensities(simopt->sdfact,lambda,seq->seq,model->ncycle,model->chol1,intensities);
+        loglike = likelihood_cycle_intensities(simopt->sdfact,lambda,intensities,model->invchol1,loglike);
         uint32_t x = (uint32_t)( 1794 * runif());
         uint32_t y = (uint32_t)( 2048 * runif());
         fprintf(stdout,"%u\t%u\t%u\t%u",model->lane,model->tile,x,y);
         fprint_intensities(stdout,"",loglike,false);
         if ( model->paired ){
             NUC * rcseq = reverse_complement(seq->seq,seq->length);
-            intensities2 = generate_pure_intensities(lambda,rcseq,model->ncycle,model->chol2,intensities2);
-            loglike2 = likelihood_cycle_intensities(lambda,intensities2,model->invchol2,loglike2);
+            intensities2 = generate_pure_intensities(simopt->sdfact,lambda,rcseq,model->ncycle,model->chol2,intensities2);
+            loglike2 = likelihood_cycle_intensities(simopt->sdfact,lambda,intensities2,model->invchol2,loglike2);
             fprint_intensities(stdout,"",loglike2,false);
             safe_free(rcseq);
         }
         fputc('\n',stdout);
         free_SEQ(seq);
+        seq_count++;
+        if( (seq_count%1000)==0 ){ fprintf(stderr,"\rDone: %8u",seq_count); }
     }
+    fprintf(stderr,"\rFinished generating %8u sequences\n",seq_count);
     free_MAT(loglike2);
     free_MAT(intensities2);
     free_MAT(loglike);
