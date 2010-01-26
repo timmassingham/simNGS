@@ -278,7 +278,7 @@ real_t lss ( const MAT x, const MAT invVchol ){
 }
     
     
-MAT likelihood_cycle_intensities ( const real_t sdfact, const real_t lambda, const MAT ints, const MAT * invchol, MAT like){
+MAT likelihood_cycle_intensities ( const real_t sdfact, const real_t mu, const real_t lambda, const MAT ints, const MAT * invchol, MAT like){
     validate(NULL!=ints,NULL);
     validate(NULL!=invchol,NULL);
     const uint32_t ncycle = ints->ncol;
@@ -296,6 +296,11 @@ MAT likelihood_cycle_intensities ( const real_t sdfact, const real_t lambda, con
             like->x[i*NBASE+j] = dchisq4(lss(tmp,invchol[i])/(sdfact*sdfact));
             // Note: dmultinorm needs updating to include sdfact if to be used again
             //like->x[i*NBASE+j] = dmultinorm(tmp,NULL,invchol[i],NBASE,true);
+        }
+    }
+    if(mu>0.0){
+        for( uint32_t i=0 ; i<(ncycle*NBASE) ; i++){
+            like->x[i] += mu;
         }
     }
     free_MAT(tmp);
