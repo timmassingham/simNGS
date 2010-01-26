@@ -42,7 +42,7 @@ void fprint_usage( FILE * fp){
 "\n"
 "Usage:\n"
 "\tsimNGS [-b shape,scale][-c ncycles] [-l lane] [-p] [-r mu]\n"
-"\t       [-s seed] [-t tile] [-v factor ] runfile\n"
+"\t       [-s seed] [-t tile] [-u] [-v factor ] runfile\n"
 "\tsimNGS --help\n"
 "simNGS reads from stdin and writes to stdout, messages and progess\n"
 "indicators are written to stderr.\n"
@@ -81,6 +81,10 @@ void fprint_help( FILE * fp){
 "-t, --tile tile [default: as runfile\n"
 "\tSet tile number.\n"
 "\n"
+"-u, --unequal\n"
+"\tCluster brightness for pair-end data is not considered to be equal for\n"
+"both ends. The brightness of each end is sampled independently.\n"
+"\n"
 "-v, --variance factor [default: 1.0]\n"
 "\tFactor with which to scale variance matrix by.\n"
 , fp);
@@ -94,6 +98,7 @@ static struct option longopts[] = {
     { "robust",     required_argument, NULL, 'r' },
     { "seed",       required_argument, NULL, 's' },
     { "tile",       required_argument, NULL, 't' },
+    { "unequal",    no_argument,       NULL, 'u' },
     { "variance",   required_argument, NULL, 'v' },
     { "help",       no_argument,       NULL, 'h' }
 };
@@ -130,7 +135,7 @@ unsigned int parse_uint( const CSTRING str){
 typedef struct {
     unsigned int ncycle;
     real_t shape,scale;
-    bool paired;
+    bool paired,unequal;
     real_t mu,sdfact;
     uint32_t seed;
     uint32_t tile,lane;
@@ -144,6 +149,7 @@ SIMOPT new_SIMOPT(void){
     opt->shape = 0.0;
     opt->scale = 0.0;
     opt->paired = false;
+    opt->unequal = false;
     opt->mu = 0.0;
     opt->seed = 0;
     opt->sdfact = 1.0;
@@ -172,6 +178,7 @@ void show_SIMOPT (FILE * fp, const SIMOPT simopt){
     fputs("\tOptions:\n",fp);
     fprintf( fp,"ncycle\t%u\n",simopt->ncycle);
     fprintf( fp,"paired\t%s\n",boolstr[simopt->paired]);
+    fprintf( fp,"equal brightness\t%s\n",boolstr[simopt->unequal]);
     fprintf( fp,"mu\t%f\n",simopt->mu);
     fprintf( fp,"shape\t%f\n",simopt->shape);
     fprintf( fp,"scale\t%f\n",simopt->scale);
@@ -200,6 +207,8 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
         case 's':   simopt->seed = parse_uint(optarg);
                     break;
         case 't':   simopt->tile = parse_uint(optarg);
+                    break;
+        case 'u':   simopt->unequal = true;
                     break;
         case 'v':   simopt->sdfact = sqrt(parse_real(optarg));
                     break;
@@ -302,6 +311,7 @@ int main( int argc, char * argv[] ){
         fprintf(stdout,"%u\t%u\t%u\t%u",model->lane,model->tile,x,y);
         fprint_intensities(stdout,"",loglike,false);
         if ( model->paired ){
+            if(simopt->unequal){ lambda = rweibull(model->shape,model->scale); }
             NUC * rcseq = reverse_complement(seq->seq,seq->length);
             intensities2 = generate_pure_intensities(simopt->sdfact,lambda,rcseq,model->ncycle,model->chol2,intensities2);
             loglike2 = likelihood_cycle_intensities(simopt->sdfact,lambda,intensities2,model->invchol2,loglike2);
