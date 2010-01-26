@@ -204,6 +204,7 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
         case 'v':   simopt->sdfact = sqrt(parse_real(optarg));
                     break;
         case 'h':
+            fprint_usage(stderr);
             fprint_help(stderr);
             exit(EXIT_SUCCESS);
         default:
