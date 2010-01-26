@@ -41,7 +41,7 @@ void fprint_usage( FILE * fp){
 "Simulate likelihoods for Illumina data from fasta format files\n"
 "\n"
 "Usage:\n"
-"\tsimNGS [-b shape,scale][-c ncycles] [-l lane] [-p on|off] [-r mu]\n"
+"\tsimNGS [-b shape,scale][-c ncycles] [-l lane] [-p] [-r mu]\n"
 "\t       [-s seed] [-t tile] [-v factor ] runfile\n"
 "\tsimNGS --help\n"
 "simNGS reads from stdin and writes to stdout, messages and progess\n"
@@ -66,8 +66,8 @@ void fprint_help( FILE * fp){
 "-l, --lane lane [default: as runfile]\n"
 "\tSet lane number\n"
 "\n"
-"-p, --paired on|off [default: off]\n"
-"\tTreat run as paired-end or not. For single-ended runs treated as\n"
+"-p, --paired\n"
+"\tTreat run as paired-end. For single-ended runs treated as\n"
 "paired, the covariance matrix is duplicated to make two uncorrelated pairs.\n"
 "For paired-end runs treated as single, the second end is ignored.\n"
 "\n"
@@ -90,7 +90,7 @@ static struct option longopts[] = {
     { "brightness", required_argument, NULL, 'b' },
     { "cycles",     required_argument, NULL, 'c' },
     { "lane",       required_argument, NULL, 'l' },
-    { "paired",     required_argument, NULL, 'p' },
+    { "paired",     no_argument,       NULL, 'p' },
     { "robust",     required_argument, NULL, 'r' },
     { "seed",       required_argument, NULL, 's' },
     { "tile",       required_argument, NULL, 't' },
@@ -193,7 +193,7 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
                     break;
         case 'l':   simopt->lane = parse_uint(optarg);
                     break;
-        case 'p':   simopt->paired = parse_bool(optarg);
+        case 'p':   simopt->paired = true;
                     break;
         case 'r':   simopt->mu = parse_real(optarg);
                     break;
