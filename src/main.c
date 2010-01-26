@@ -192,7 +192,7 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
     SIMOPT simopt = new_SIMOPT();
     validate(NULL!=simopt,NULL);
     
-    while ((ch = getopt_long(argc, argv, "b:c:l:p:r:s:t:v:h", longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "b:c:l:pr:s:t:uv:h", longopts, NULL)) != -1){
         switch(ch){
         case 'b':   sscanf(optarg,real_format_str "," real_format_str ,&simopt->shape,&simopt->scale);
                     break;
@@ -206,6 +206,7 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
                     break;
         case 'r':   simopt->mu = parse_real(optarg);
                     if(simopt->mu<0.0){errx(EXIT_FAILURE,"Robustness \"mu\" must be non-negative.\n");}
+                    break;
         case 's':   simopt->seed = parse_uint(optarg);
                     break;
         case 't':   simopt->tile = parse_uint(optarg);
@@ -243,6 +244,7 @@ int main( int argc, char * argv[] ){
 
     // Load up model
     MODEL model = new_MODEL_from_file(argv[0]);
+    fprintf(stderr,"Description of runfile:\n%s",model->label);
     
     // Resolve options and model
     // Should factor out into separate routine
@@ -253,10 +255,12 @@ int main( int argc, char * argv[] ){
     
     if(simopt->paired!=model->paired){
         if(simopt->paired==false){
+            fputs("Treating paired-end model as single-ended.\n",stderr);
             model->paired = false;
             free_MAT(model->cov2);
             model->cov2 = NULL;
         } else {
+            fputs("Treating single-ended model as paired-end.\n",stderr);
             model->paired = true;
             model->cov2 = copy_MAT(model->cov1);
             model->chol2 = copy_MAT(model->chol1);
@@ -291,9 +295,8 @@ int main( int argc, char * argv[] ){
         simopt->seed = seed;
     }
     init_gen_rand( simopt->seed );
-    show_SIMOPT(stderr,simopt);
+    //show_SIMOPT(stderr,simopt);
     //show_MODEL(stderr,model);
-
 
     // Scan through fasta file
     MAT intensities = NULL, intensities2 = NULL;
