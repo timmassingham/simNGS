@@ -38,10 +38,10 @@ More detailed descriptions are available in doc/parameters.txt
 
 ** Example
 	Produces likelihoods for sequences in test100.fa and outputs to 
-test.like, treating the (single-ended) runfile "1547_s_4_0021.runfile" as 
+test.like, treating the (single-ended) runfile "s_2_0005.runfile" as 
 paired-end.
 
-cat test100.fa | bin/simNGS -p 1547_s_4_0021.runfile  > test.like
+cat test100.fa | bin/simNGS -p data/s_2_0005.runfile  > test.like
 
 Description of runfile:
 # 76 cycle PhiX data from Sanger, single-ended. Very good run
@@ -50,19 +50,19 @@ Using seed 1264523667
 Finished generating       100 sequences
 
 Output, trimmed and artificially split over several lines:
-4	21	1165	560
+2	5	1165	560
 	1.441031e+00 9.830551e-01 2.178242e+00 2.034257e+00
 	4.003852e+00 4.413710e+00 2.539974e+00 3.105548e+00
 ... more intensities
-4	21	1668	739
+2	5	1668	739
 ... more 
 
-The lane was 4, the tile was 21. The coordinates of the first cluster are 
-1165,560 (randomly generated, uniformly over the tile and not thinned to take
-into account merged clusters). The likelihoods are encoded as -log(likelihood),
-so smaller values are the more likely, and the difference between these values
-(a function of the likelihood-ratio statistic) is a measure of the relative 
-confidence between two calls.
+The lane was 2, the tile was 5. The coordinates of the first cluster are 
+1165,560 (randomly generated as if from a GAII machine [1], uniformly over the
+tile and not thinned to take into account merged clusters). The likelihoods are 
+encoded as -log(likelihood), so smaller values are the more likely, and the 
+difference between these values (a function of the likelihood-ratio statistic) 
+is a measure of the relative confidence between two calls.
 
 
 ** Output format
@@ -106,3 +106,6 @@ matrix, which should have the same dimensions as the first.
 
 	The matrices in runfile are covariance matrices for the noise in the run
 and so must be symmetric positive-definite.
+
+[1] X \in {0, ... , 1794}
+    Y \in {0, ... , 2047}
