@@ -1,22 +1,22 @@
 /*
- *  Copyright (C) 2009 by Tim Massingham
+ *  Copyright (C) 2010 by Tim Massingham, European Bioinformatics Institute
  *  tim.massingham@ebi.ac.uk
  *
- *  This file is part of the trim_adapter software for trimming 
- *  adapter sequence from reads.
+ *  This file is part of the simNGS software for simulating likelihoods
+ *  for next-generation sequencing machines.
  *
- *  trim_adapter is free software: you can redistribute it and/or modify
+ *  simNGS is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  trim_adapter is distributed in the hope that it will be useful,
+ *  simNGS is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with trim_adapter.  If not, see <http://www.gnu.org/licenses/>.
+ *  along with simNGS.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "nuc.h"
