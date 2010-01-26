@@ -197,20 +197,25 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
         case 'b':   sscanf(optarg,real_format_str "," real_format_str ,&simopt->shape,&simopt->scale);
                     break;
         case 'c':   sscanf(optarg,"%u",&simopt->ncycle);
+                    if(simopt->ncycle==0){errx(EXIT_FAILURE,"Number of cycles to simulate must be greater than zero.\n");}
                     break;
         case 'l':   simopt->lane = parse_uint(optarg);
+                    if(simopt->lane==0){errx(EXIT_FAILURE,"Lane number must be greater than zero.\n");}
                     break;
         case 'p':   simopt->paired = true;
                     break;
         case 'r':   simopt->mu = parse_real(optarg);
-                    break;
+                    if(simopt->mu<0.0){errx(EXIT_FAILURE,"Robustness \"mu\" must be non-negative.\n");}
         case 's':   simopt->seed = parse_uint(optarg);
                     break;
         case 't':   simopt->tile = parse_uint(optarg);
+                    if(simopt->tile==0){errx(EXIT_FAILURE,"Tile number must be greater than zero.\n");}
                     break;
         case 'u':   simopt->unequal = true;
                     break;
-        case 'v':   simopt->sdfact = sqrt(parse_real(optarg));
+        case 'v':   simopt->sdfact = parse_real(optarg);
+                    if(simopt->sdfact<0.0){errx(EXIT_FAILURE,"Variance scaling factor must be non-negative.\n");}
+                    simopt->sdfact = sqrt(simopt->sdfact);
                     break;
         case 'h':
             fprint_usage(stderr);
@@ -286,7 +291,7 @@ int main( int argc, char * argv[] ){
         simopt->seed = seed;
     }
     init_gen_rand( simopt->seed );
-    //show_SIMOPT(stderr,simopt);
+    show_SIMOPT(stderr,simopt);
     //show_MODEL(stderr,model);
 
 
@@ -305,7 +310,7 @@ int main( int argc, char * argv[] ){
         }
         real_t lambda = rweibull(model->shape,model->scale);
         intensities = generate_pure_intensities(simopt->sdfact,lambda,seq->seq,model->ncycle,model->chol1,intensities);
-        loglike = likelihood_cycle_intensities(simopt->sdfact,lambda,intensities,model->invchol1,loglike);
+        loglike = likelihood_cycle_intensities(simopt->sdfact,simopt->mu,lambda,intensities,model->invchol1,loglike);
         uint32_t x = (uint32_t)( 1794 * runif());
         uint32_t y = (uint32_t)( 2048 * runif());
         fprintf(stdout,"%u\t%u\t%u\t%u",model->lane,model->tile,x,y);
@@ -314,7 +319,7 @@ int main( int argc, char * argv[] ){
             if(simopt->unequal){ lambda = rweibull(model->shape,model->scale); }
             NUC * rcseq = reverse_complement(seq->seq,seq->length);
             intensities2 = generate_pure_intensities(simopt->sdfact,lambda,rcseq,model->ncycle,model->chol2,intensities2);
-            loglike2 = likelihood_cycle_intensities(simopt->sdfact,lambda,intensities2,model->invchol2,loglike2);
+            loglike2 = likelihood_cycle_intensities(simopt->sdfact,simopt->mu,lambda,intensities2,model->invchol2,loglike2);
             fprint_intensities(stdout,"",loglike2,false);
             safe_free(rcseq);
         }
