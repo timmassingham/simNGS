@@ -44,7 +44,7 @@ void fprint_usage( FILE * fp){
 "\tsimNGS [-b shape,scale][-c ncycles] [-l lane] [-p] [-r mu]\n"
 "\t       [-s seed] [-t tile] [-u] [-v factor ] runfile\n"
 "\tsimNGS --help\n"
-"simNGS reads from stdin and writes to stdout, messages and progess\n"
+"simNGS reads from stdin and writes to stdout. Messages and progess\n"
 "indicators are written to stderr.\n"
 ,fp);
 }
