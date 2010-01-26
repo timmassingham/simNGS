@@ -1,4 +1,5 @@
-                                  simNGS
+       simNGS -- software for simulating next-generation sequencing data
+       
 ** Introduction
         simNGS is software for simulating "perfect" observations from Illumina
 sequencing machines using the statistical models behind the AYB base-calling
@@ -27,7 +28,7 @@ which should produce a binary "bin/simNGS".
 ** Usage
 	Fasta format sequence are read from stdin and log-likelihoods for the
 sequences, after the addition of noise, are written to stdout in a format 
-described in \"Output format\" below. Messages and progress indicators are 
+described in "Output format" below. Messages and progress indicators are 
 written to stderr. simNGS accepts several command-line arguments to change its
 behaviour, brief descriptions of which are available by running 'simNGS --help'.
 More detailed descriptions are available in doc/parameters.txt
