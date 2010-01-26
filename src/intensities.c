@@ -254,8 +254,8 @@ MAT generate_pure_intensities ( const real_t sdfact, const real_t lambda, const 
     return ints;
 }
 
-real_t dchisq4( const real_t x){
-    return exp(-0.5*x);
+real_t dchisq4( const real_t x, const bool logb){
+    return (false==logb)? exp(-0.5*x) : -0.5*x;
 }
     
 real_t lss ( const MAT x, const MAT invVchol ){
@@ -293,14 +293,15 @@ MAT likelihood_cycle_intensities ( const real_t sdfact, const real_t mu, const r
         for ( int j=0 ; j<NBASE ; j++){
             memcpy(tmp->x,ints->x+i*NBASE,NBASE*sizeof(real_t));
             tmp->x[j] -= lambda;
-            like->x[i*NBASE+j] = dchisq4(lss(tmp,invchol[i])/(sdfact*sdfact));
-            // Note: dmultinorm needs updating to include sdfact if to be used again
-            //like->x[i*NBASE+j] = dmultinorm(tmp,NULL,invchol[i],NBASE,true);
+            like->x[i*NBASE+j] = -dchisq4(lss(tmp,invchol[i])/(sdfact*sdfact),true);
         }
     }
     if(mu>0.0){
+        const real_t log_mu = log(mu);
         for( uint32_t i=0 ; i<(ncycle*NBASE) ; i++){
-            like->x[i] += mu;
+            // Calculate -log( mu + exp(loglike) )
+            // == log(mu) + log( 1 + exp(loglike-log(mu)) )
+            like->x[i] = -log_mu - log1p( exp(-like->x[i]-log_mu) );
         }
     }
     free_MAT(tmp);
