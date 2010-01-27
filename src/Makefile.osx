@@ -25,5 +25,5 @@ clean:
 sfmt.o: 
 	gcc -o sfmt.o $(CFLAGSSFMT) -DMEXP=19937 -ISFMT-src-1.3/ -c SFMT-src-1.3/SFMT.c
 
-archive:
-	make clean && cd ../.. && tar zcf simngs.tgz --exclude=.git --exclude=bin --exclude=archive --exclude=test simNGS
+archive: clean
+	cd ../.. && tar zcf simNGS.tgz --exclude=.git --exclude=bin --exclude=archive --exclude=test --exclude=runfiles simNGS
