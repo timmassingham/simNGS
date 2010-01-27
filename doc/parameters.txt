@@ -78,4 +78,6 @@ both ends. The brightness of each end is sampled independently.
 
 -v, --variance factor [default: 1.0]
 	Factor with which to scale variance matrix by and so increase or
-decrease the amount of background noise generated.
+decrease the amount of background noise generated. Multiplying the variance
+by a factor f is mathematically equivalent to multiplying the scale of the
+brightness distribution by 1/sqrt(f).
