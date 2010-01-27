@@ -28,9 +28,10 @@ which should produce a binary "bin/simNGS".
 ** Usage
 	Fasta format sequence are read from stdin and log-likelihoods for the
 sequences, after the addition of noise, are written to stdout in a format 
-described in "Output format" below. Messages and progress indicators are 
-written to stderr. simNGS accepts several command-line arguments to change its
-behaviour, brief descriptions of which are available by running 'simNGS --help'.
+described in "Output format" below. Messages, progress indicators and a 
+summary of errors in the generated data are written to stderr.
+	simNGS accepts several command-line arguments to change its behaviour,
+brief descriptions of which are available by running 'simNGS --help'.
 More detailed descriptions are available in doc/parameters.txt
 
 	cat sequences.fa | simNGS runfile > sequences.like
@@ -44,18 +45,29 @@ paired-end.
 cat test100.fa | bin/simNGS -p data/s_2_0005.runfile  > test.like
 
 Description of runfile:
-# 76 cycle PhiX data from Sanger, single-ended. Very good run
-Treating single-ended model as paired-end.
-Using seed 1264523667
-Finished generating       100 sequences
+> # 76 cycle PhiX data from Sanger, single-ended. Very good run
+> Treating single-ended model as paired-end.
+> Using seed 1264523667
+> Finished generating       100 sequences
+> Summary of errors, calling by maximum likelihood
+> Cycle  Count  Phred   lower, upper   Count  Phred   lower, upper
+>   1:       8  10.97 (  8.24, 13.86)      6  12.22 (  9.04, 15.56)
+>   2:       4  13.98 ( 10.07, 18.05)      4  13.98 ( 10.07, 18.05)
+
+The final few lines are a per-cycle description of the raw rate if the bases
+are called by maximum likelihood. "Count" is the raw number of errors 
+generated, so the proportion of bases at a cycle with an error is 
+Count / Number of Sequences. Phred is the Phred-like "quality" score for the 
+bases, and lower and upper are an 95% confidence for the Phred score generated
+by transforming a Wilson score interval.
 
 Output, trimmed and artificially split over several lines:
-2	5	1165	560
-	1.441031e+00 9.830551e-01 2.178242e+00 2.034257e+00
-	4.003852e+00 4.413710e+00 2.539974e+00 3.105548e+00
-... more intensities
-2	5	1668	739
-... more 
+> 2	5	1165	560
+> 	1.441031e+00 9.830551e-01 2.178242e+00 2.034257e+00
+> 	4.003852e+00 4.413710e+00 2.539974e+00 3.105548e+00
+> ... more intensities
+> 2	5	1668	739
+> ... more 
 
 The lane was 2, the tile was 5. The coordinates of the first cluster are 
 1165,560 (randomly generated as if from a GAII machine [1], uniformly over the

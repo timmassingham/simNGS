@@ -348,6 +348,31 @@ void fprint_intensities(FILE * fp, const char * prefix, const MAT ints, const bo
     if(last){fputc('\n',fp);}
 }
 
+NUC * call_by_maximum_likelihood(const MAT likelihood, NUC * calls){
+    validate(NULL!=likelihood,NULL);
+    validate(NBASE==likelihood->nrow,NULL);
+    const uint32_t ncycle = likelihood->ncol;
+    if ( NULL==calls){
+       calls = calloc(ncycle,sizeof(NUC));
+       validate(NULL!=calls,NULL);
+    }
+
+    // likelihoods are stored as -log-likelihood so
+    // max likelihood <==> min -log-likelihood
+    for ( uint32_t cycle=0 ; cycle<ncycle ; cycle++){
+        calls[cycle] = NUC_A;
+        real_t lmin = likelihood->x[cycle*NBASE];
+        for ( uint32_t base=1 ; base<NBASE ; base++){
+            if(likelihood->x[cycle*NBASE+base]<lmin){
+                calls[cycle] = base;
+                lmin = likelihood->x[cycle*NBASE+base];
+            }
+        }
+    }
+
+    return calls;
+}
+
 #ifdef TESTINT
 #include <stdlib.h>
 #include <stdio.h>

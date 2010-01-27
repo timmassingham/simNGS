@@ -238,6 +238,32 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
     return simopt;
 }
 
+inline real_t phred(const real_t p) __attribute__((const));
+inline real_t prop_upper( const real_t p, const uint32_t n) __attribute__((const
+));
+inline real_t prop_lower( const real_t p, const uint32_t n) __attribute__((const
+));
+
+inline real_t phred(const real_t p){
+    return -10.0 * log10(p);
+}
+
+// Proportion confidence interval using Wilson's method
+inline real_t prop_upper( const real_t p, const uint32_t n){
+    const real_t z = 1.959964;
+    real_t desc = p*(1-p)/n + (z*z/(4.0*n*n));
+    desc = p + z*z/(2.*n) + z * sqrt(desc);
+    return desc / (1.0 + z*z/n);
+}
+
+inline real_t prop_lower( const real_t p, const uint32_t n){
+    const real_t z = 1.959964;
+    real_t desc = p*(1-p)/n + (z*z/(4.0*n*n));
+    desc = p + z*z/(2.*n) - z * sqrt(desc);
+    return desc / (1.0 + z*z/n);
+}
+
+
 int main( int argc, char * argv[] ){
     SIMOPT simopt = parse_arguments(argc,argv);
 
@@ -310,11 +336,15 @@ int main( int argc, char * argv[] ){
     //show_MODEL(stderr,model);
 
     // Scan through fasta file
-    MAT intensities = NULL, intensities2 = NULL;
-    MAT loglike = NULL, loglike2=NULL;
+    MAT intensities = NULL, loglike = NULL;
+    NUC * calls = NULL;
     SEQ seq = NULL;
-    FILE * fp = stdin;//fopen("../test/test100.fa","r");
+    FILE * fp = stdin;// fopen("test/test100_small.fa","r")
     uint32_t seq_count = 0;
+    // Memory for error counting
+    uint32_t * error = calloc(model->ncycle,sizeof(uint32_t));
+    uint32_t * error2 = calloc(model->ncycle,sizeof(uint32_t));
+
     while ((seq=sequence_from_fasta(fp))!=NULL){
         //show_SEQ(stderr,seq);
         if ( seq->length < model->ncycle ){
@@ -329,12 +359,20 @@ int main( int argc, char * argv[] ){
         uint32_t y = (uint32_t)( 2048 * runif());
         fprintf(stdout,"%u\t%u\t%u\t%u",model->lane,model->tile,x,y);
         fprint_intensities(stdout,"",loglike,false);
+        calls = call_by_maximum_likelihood(loglike,calls);
+        for ( uint32_t i=0 ; i<model->ncycle ; i++){
+            if(calls[i] != seq->seq[i]){ error[i]++;}
+        }
         if ( model->paired ){
             if(simopt->unequal){ lambda = rweibull(model->shape,model->scale); }
             NUC * rcseq = reverse_complement(seq->seq,seq->length);
-            intensities2 = generate_pure_intensities(simopt->sdfact,lambda,rcseq,model->ncycle,model->chol2,intensities2);
-            loglike2 = likelihood_cycle_intensities(simopt->sdfact,simopt->mu,lambda,intensities2,model->invchol2,loglike2);
-            fprint_intensities(stdout,"",loglike2,false);
+            intensities = generate_pure_intensities(simopt->sdfact,lambda,rcseq,model->ncycle,model->chol2,intensities);
+            loglike = likelihood_cycle_intensities(simopt->sdfact,simopt->mu,lambda,intensities,model->invchol2,loglike);
+            fprint_intensities(stdout,"",loglike,false);
+            calls = call_by_maximum_likelihood(loglike,calls);
+            for ( uint32_t i=0 ; i<model->ncycle ; i++){
+                if(calls[i] != rcseq[i]){ error2[i]++;}
+            }
             safe_free(rcseq);
         }
         fputc('\n',stdout);
@@ -343,12 +381,26 @@ int main( int argc, char * argv[] ){
         if( (seq_count%1000)==0 ){ fprintf(stderr,"\rDone: %8u",seq_count); }
     }
     fprintf(stderr,"\rFinished generating %8u sequences\n",seq_count);
-    free_MAT(loglike2);
-    free_MAT(intensities2);
+    safe_free(calls);
     free_MAT(loglike);
     free_MAT(intensities);
+
+    // Print error summary
+    fputs("Summary of errors, calling by maximum likelihood\n",stderr);
+    fputs("Cycle  Count  Phred   lower, upper",stderr);
+    if(simopt->paired){ fputs("   Count  Phred   lower, upper",stderr);}
+    for ( uint32_t i=0 ; i<model->ncycle ; i++){
+        const real_t e = ((real_t)error[i])/seq_count;
+	fprintf(stderr,"\n%3u: %7u %6.2f (%6.2f,%6.2f)",i+1,error[i], phred(e), phred(prop_upper(e,seq_count)), phred(prop_lower(e,seq_count)));
+        if(simopt->paired){ 
+            const real_t e2 = ((real_t)error2[i])/seq_count;
+            fprintf(stderr,"%7u %6.2f (%6.2f,%6.2f)",error2[i], phred(e2), phred(prop_upper(e2,seq_count)), phred(prop_lower(e2,seq_count)));
+        }
+    }
+    fputc('\n',stderr);
     free_MODEL(model);
     free_SIMOPT(simopt);
+
     return EXIT_SUCCESS;
 }
 
