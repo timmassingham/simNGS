@@ -223,7 +223,7 @@ void show_MAT ( FILE * fp, const MAT mat, const uint32_t mrow, const uint32_t mc
     for( int row=0 ; row<maxrow ; row++){
         fprintf(fp,"%d:",row+1);
         for ( int col=0 ; col<maxcol ; col++){
-            fprintf(fp,"\t%3.2f",mat->x[col*nrow+row]);
+            fprintf(fp," %#8.2f",mat->x[col*nrow+row]);
         }
         if(maxcol<ncol){ fprintf(fp,"\t... (%u others)",ncol-maxcol); }
         fputc('\n',fp);

@@ -41,8 +41,8 @@ void fprint_usage( FILE * fp){
 "Simulate likelihoods for Illumina data from fasta format files\n"
 "\n"
 "Usage:\n"
-"\tsimNGS [-b shape,scale][-c ncycles] [-l lane] [-p] [-r mu]\n"
-"\t       [-s seed] [-t tile] [-u] [-v factor ] runfile\n"
+"\tsimNGS [-b shape,scale][-c ncycles] [-d] [-l lane] [-p]\n"
+"\t       [-r mu] [-s seed] [-t tile] [-u] [-v factor ] runfile\n"
 "\tsimNGS --help\n"
 "simNGS reads from stdin and writes to stdout. Messages and progess\n"
 "indicators are written to stderr.\n"
@@ -62,6 +62,9 @@ void fprint_help( FILE * fp){
 "\n"
 "-c, --cycles ncycles [default: as runfile]\n"
 "\tNumber of cycles to do, up to maximum allowed for runfile.\n"
+"\n"
+"-d, --describe\n"
+"\tPrint a description of the runfile and exit.\n"
 "\n"
 "-l, --lane lane [default: as runfile]\n"
 "\tSet lane number\n"
@@ -93,6 +96,7 @@ void fprint_help( FILE * fp){
 static struct option longopts[] = {
     { "brightness", required_argument, NULL, 'b' },
     { "cycles",     required_argument, NULL, 'c' },
+    { "describe",   no_argument,       NULL, 'd' },
     { "lane",       required_argument, NULL, 'l' },
     { "paired",     no_argument,       NULL, 'p' },
     { "robust",     required_argument, NULL, 'r' },
@@ -135,7 +139,7 @@ unsigned int parse_uint( const CSTRING str){
 typedef struct {
     unsigned int ncycle;
     real_t shape,scale;
-    bool paired,unequal;
+    bool paired,unequal,desc;
     real_t mu,sdfact;
     uint32_t seed;
     uint32_t tile,lane;
@@ -150,6 +154,7 @@ SIMOPT new_SIMOPT(void){
     opt->scale = 0.0;
     opt->paired = false;
     opt->unequal = false;
+    opt->desc = false;
     opt->mu = 0.0;
     opt->seed = 0;
     opt->sdfact = 1.0;
@@ -192,12 +197,14 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
     SIMOPT simopt = new_SIMOPT();
     validate(NULL!=simopt,NULL);
     
-    while ((ch = getopt_long(argc, argv, "b:c:l:pr:s:t:uv:h", longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "b:c:dl:pr:s:t:uv:h", longopts, NULL)) != -1){
         switch(ch){
         case 'b':   sscanf(optarg,real_format_str "," real_format_str ,&simopt->shape,&simopt->scale);
                     break;
         case 'c':   sscanf(optarg,"%u",&simopt->ncycle);
                     if(simopt->ncycle==0){errx(EXIT_FAILURE,"Number of cycles to simulate must be greater than zero.\n");}
+                    break;
+        case 'd':   simopt->desc = true;
                     break;
         case 'l':   simopt->lane = parse_uint(optarg);
                     if(simopt->lane==0){errx(EXIT_FAILURE,"Lane number must be greater than zero.\n");}
@@ -244,6 +251,10 @@ int main( int argc, char * argv[] ){
 
     // Load up model
     MODEL model = new_MODEL_from_file(argv[0]);
+    if( simopt->desc ){
+        show_MODEL(stderr,model);
+        return EXIT_SUCCESS;
+    } 
     fprintf(stderr,"Description of runfile:\n%s",model->label);
     
     // Resolve options and model

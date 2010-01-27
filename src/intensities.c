@@ -158,7 +158,10 @@ void show_MODEL( FILE * fp, const MODEL model){
     if(NULL!=model->label){fputs(model->label,fp);}
     fprintf(fp,"Parameters for %u cycle model\n",model->ncycle);
     fprintf(fp,"Lane %u, tile %u\n",model->lane,model->tile);
-    fprintf(fp,"Brightness:\tshape=%f\tscale=%f\n",model->shape,model->scale);
+    fprintf(fp,"Brightness distribution:\n\tshape=%f\tscale=%f\n",model->shape,model->scale);
+    const real_t bmean = model->scale * tgamma(1./model->shape) / model->shape;
+    const real_t bvar = model->scale*model->scale * 2.0 * tgamma(2./model->shape) / model->shape - bmean*bmean;
+    fprintf(fp,"\tmean=%f\tsd=%f\n",bmean,sqrt(bvar));
     fputs("Covariance matrix of errors:\n",fp);
     show_MAT(fp,model->cov1,5,5);
 

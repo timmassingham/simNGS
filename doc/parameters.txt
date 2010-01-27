@@ -2,8 +2,8 @@
 
 ** Usage
 
-	simNGS [-b shape,scale][-c ncycles] [-l lane] [-p] [-r mu]
-	       [-s seed] [-t tile] [-u] [-v factor ] runfile
+	simNGS [-b shape,scale][-c ncycles] [-d] [-l lane] [-p]
+	       [-r mu] [-s seed] [-t tile] [-u] [-v factor ] runfile
 	simNGS --help
 
 
@@ -26,6 +26,10 @@ where \Gamma is the Gamma function.
 the runfile. If more cycles are asked for than allowed, a warning is printed and
 the number of cycles outputted is restricted to number specificed in the 
 runfile.
+
+
+-d, --describe
+	Print a description of the runfile and exit.
 
 
 -l, --lane lane [default: as runfile]
