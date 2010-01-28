@@ -5,6 +5,10 @@
 #ifndef _ARRAY_GH
 #define _ARRAY_GH
 	#define ARRAY(A)	struct _array_ ## A
+	#define NULL_ARRAY(A)	(ARRAY(A)){NULL,0};
+	#define NEW_ARRAY(A)	new_array_ ## A
+	#define FREE_ARRAY(A)	free_array_ ## A
+	#define	COPY_ARRAY(A)	copy_array_ ## A
 #endif
 
 struct X(_array_) {
