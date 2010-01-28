@@ -67,12 +67,12 @@ NUC complement(const NUC nuc){
     return NUC_AMBIG;
 }
 
-NUC * reverse_complement(const NUC * nuc, const uint32_t len){
-    validate(NULL!=nuc,NULL);
-    NUC * new_nuc = calloc(len,sizeof(NUC));
-    validate(NULL!=new_nuc,NULL);
-    for ( uint32_t i=0 ; i<len ; i++){
-        new_nuc[i] = complement(nuc[len-i-1]);
+ARRAY(NUC) reverse_complement(const ARRAY(NUC) nucs){
+    validate(NULL!=nucs.elt,NULL_ARRAY(NUC));
+    ARRAY(NUC) new_nuc = NEW_ARRAY(NUC)(nucs.nelt);
+    validate(NULL!=new_nuc.elt,new_nuc);
+    for ( uint32_t i=0 ; i<nucs.nelt ; i++){
+        new_nuc.elt[i] = complement(nucs.elt[nucs.nelt-i-1]);
     }
     return new_nuc;
 }
@@ -82,3 +82,98 @@ PHREDCHAR phredchar_from_char( const char c){
     validate(c<127,126);
     return c;
 }
+
+
+uint32_t nucs_in_flows( const ARRAY(FLOW) flows){
+    uint32_t n=0;
+    for ( uint32_t i=0 ; i<flows.nelt ; i++){
+        n += flows.elt[i];
+    }
+    return n;
+}
+
+uint32_t flows_in_nucs( const ARRAY(NUC) nucs, const ARRAY(NUC) flow_order ){
+    validate(nucs.nelt==flow_order.nelt,0);
+    uint32_t flow=0;
+    for(uint32_t i=0 ; i<nucs.nelt && flow<flow_order.nelt; i++){
+        while(flow<flow_order.nelt && nucs.elt[i]!=flow_order.elt[flow]){ flow++;}
+    }
+    return flow;
+}
+
+
+ARRAY(NUC) nucs_from_flow( const ARRAY(FLOW) flows, const ARRAY(NUC) flow_order){
+    validate(flows.nelt==flow_order.nelt,NULL_ARRAY(NUC));
+    uint32_t len = nucs_in_flows(flows);
+    ARRAY(NUC) nucs = NEW_ARRAY(NUC)(len);
+    if(NULL==nucs.elt){ return nucs;}
+    for ( uint32_t flow=0,idx=0 ; flow<flows.nelt && idx<len ; flow++ ){
+        for ( uint32_t j=0 ; j<flows.elt[flow] && idx<len ; j++,idx++){
+            nucs.elt[idx] = flow_order.elt[flow];
+        }
+    }
+    return nucs;
+}
+
+ARRAY(FLOW) flows_from_nucs( const ARRAY(NUC) nucs, const ARRAY(NUC) flow_order){
+    ARRAY(FLOW) flows = NEW_ARRAY(FLOW)(flow_order.nelt);
+    uint32_t flow=0;
+    
+    for ( uint32_t i=0 ; i<nucs.nelt ; i++){
+        while(flow<flow_order.nelt && nucs.elt[i]!=flow_order.elt[flow]){ flow++;}
+        if(flow<flow_order.nelt){ flows.elt[flow]++;}
+    }
+    // Remaining elements of flows are zero by definition
+    return flows;
+}
+
+#ifdef TEST
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int main ( int argc, char * argv[]){
+    if(argc!=3){
+        fputs("Usage: test sequence flows\n",stderr);
+        return EXIT_FAILURE;
+    }
+    uint32_t nnuc = strlen(argv[1]);
+    ARRAY(NUC) nucs = NEW_ARRAY(NUC)(nnuc);
+    for ( uint32_t i=0 ; i<nucs.nelt ; i++){
+        nucs.elt[i] = nuc_from_char(argv[1][i]);
+    }
+    uint32_t nflow = strlen(argv[2]);
+    ARRAY(NUC) flow_order = NEW_ARRAY(NUC)(nflow);
+    for ( uint32_t i=0 ; i<nflow ; i++){
+        flow_order.elt[i] = nuc_from_char(argv[2][i]);
+    }
+    
+    fputs("Read sequence:     ",stdout);
+    for ( uint32_t i=0 ; i<nucs.nelt ; i++){
+        fputc(char_from_nuc(nucs.elt[i]),stdout);
+    }
+    fputc('\n',stdout);
+    
+    ARRAY(NUC) rc = reverse_complement(nucs);
+    fputs("Reversed sequence: ",stdout);
+    for ( uint32_t i=0 ; i<rc.nelt ; i++){
+        fputc(char_from_nuc(rc.elt[i]),stdout);
+    }
+    fputc('\n',stdout);
+    
+    ARRAY(FLOW) flow = flows_from_nucs(nucs,flow_order);
+    fputs("Sequence as flows: ",stdout);
+    for ( uint32_t i=0 ; i<flow.nelt ; i++){
+        fprintf(stdout,"%d",flow.elt[i]);
+    }
+    fputc('\n',stdout);
+    
+    ARRAY(NUC) trans = nucs_from_flow(flow,flow_order);
+    fputs("Back-translated  : ",stdout);
+    for ( uint32_t i=0 ; i<trans.nelt ; i++){
+        fputc(char_from_nuc(trans.elt[i]),stdout);
+    }
+    fputc('\n',stdout);
+}
+#endif
+

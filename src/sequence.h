@@ -30,8 +30,8 @@
 
 struct _sequence {
    char * name, *qname;
-   NUC * seq;
-   PHREDCHAR * qual;
+   ARRAY(NUC) seq;
+   ARRAY(PHREDCHAR) qual;
    uint32_t length;
 };
 typedef struct _sequence * SEQ;

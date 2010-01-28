@@ -36,8 +36,8 @@ void free_SEQ ( SEQ seq ){
    validate(NULL!=seq,);
    if ( NULL!=seq->name ){ safe_free(seq->name); }
    if ( NULL!=seq->qname){ safe_free(seq->qname);}
-   if ( NULL!=seq->seq  ){ safe_free(seq->seq); }
-   if ( NULL!=seq->qual ){ safe_free(seq->qual); }
+   if ( NULL!=seq->seq.elt  ){ FREE_ARRAY(NUC)(seq->seq); }
+   if ( NULL!=seq->qual.elt ){ FREE_ARRAY(PHREDCHAR)(seq->qual); }
    safe_free(seq);
 }
 
@@ -47,11 +47,11 @@ SEQ new_SEQ (const uint32_t len, const bool has_qual){
    if(NULL==seq){return NULL;}
    seq->name = NULL;
    seq->qname = NULL;
-   seq->seq = calloc(len,sizeof(NUC));
-   if(NULL==seq->seq){ goto cleanup; }
+   seq->seq = NEW_ARRAY(NUC)(len);
+   if(NULL==seq->seq.elt){ goto cleanup; }
    if(has_qual){
-      seq->qual = calloc(len,sizeof(PHREDCHAR));
-      if(NULL==seq->qual){ goto cleanup; }
+      seq->qual = NEW_ARRAY(PHREDCHAR)(len);
+      if(NULL==seq->qual.elt){ goto cleanup; }
    }
 
    seq->length = len;
@@ -82,11 +82,11 @@ SEQ sequence_from_str ( const char * restrict name, const char * restrict seqstr
    }
 
    for ( uint32_t i=0 ; i<length ; i++){
-      seq->seq[i] = nuc_from_char(seqstr[i]);
+      seq->seq.elt[i] = nuc_from_char(seqstr[i]);
    }
    if ( NULL!=qualstr ){
       for ( uint32_t i=0 ; i<length ; i++){
-         seq->qual[i] = phredchar_from_char(qualstr[i]);
+         seq->qual.elt[i] = phredchar_from_char(qualstr[i]);
       }
    }
    
@@ -96,17 +96,13 @@ SEQ sequence_from_str ( const char * restrict name, const char * restrict seqstr
 SEQ copy_SEQ ( const SEQ seq){
    if(NULL==seq){ return NULL;}
 
-   SEQ newseq = calloc(1,sizeof(struct _sequence));
+   SEQ newseq = new_SEQ(seq->length,(NULL!=seq->qual.elt)?true:false);
    if(NULL==newseq){return NULL;}
    // Sequence
-   newseq->seq = calloc(seq->length,sizeof(NUC));
-   if(NULL==newseq->seq){ goto cleanup;}
-   memcpy(newseq->seq,seq->seq,seq->length*sizeof(NUC));
+   memcpy(newseq->seq.elt,seq->seq.elt,seq->length*sizeof(NUC));
    // Qualities
-   if(NULL!=seq->qual){
-       newseq->qual = calloc(seq->length,sizeof(PHREDCHAR));
-       if(NULL==newseq->qual){ goto cleanup;}
-       memcpy(newseq->qual,seq->qual,seq->length*sizeof(PHREDCHAR));
+   if(NULL!=seq->qual.elt){
+       memcpy(newseq->qual.elt,seq->qual.elt,seq->length*sizeof(PHREDCHAR));
    }
    
    newseq->length = seq->length;
@@ -133,18 +129,18 @@ void show_SEQ( FILE * fp, const SEQ seq){
    validate(NULL!=fp,);
    validate(NULL!=seq,);
 
-   (NULL==seq->qual)? fputc('>',fp) : fputc('@',fp);
+   (NULL==seq->qual.elt)? fputc('>',fp) : fputc('@',fp);
    if(NULL!=seq->name){ fputs(seq->name,fp); }
    fputc('\n',fp);
    for ( uint32_t i=0 ; i<seq->length ; i++){
-       show_NUC(fp,seq->seq[i]);
+       show_NUC(fp,seq->seq.elt[i]);
    }
    fputc('\n',fp);
-   if(NULL!=seq->qual){
+   if(NULL!=seq->qual.elt){
       fputc('+',fp);
       if(NULL!=seq->qname){ fputs(seq->qname,fp); }
       fputc('\n',fp);
-      fwrite(seq->qual,sizeof(char),seq->length,fp);
+      fwrite(seq->qual.elt,sizeof(char),seq->length,fp);
       fputc('\n',fp);
    }
 }
@@ -260,21 +256,21 @@ SEQ sequence_from_file ( FILE * fp){
 }
 
 SEQ reverse_complement_SEQ( const SEQ seq){
-    NUC * rcnuc = NULL;
+    ARRAY(NUC) rcnuc = NULL_ARRAY(NUC);
     SEQ newseq = NULL;
     
     validate(NULL!=seq,NULL);
     newseq = copy_SEQ(seq);
     validate(NULL!=newseq,NULL);
-    rcnuc = reverse_complement(seq->seq,seq->length);
-    if(NULL==rcnuc){ goto cleanup;}
-    safe_free(newseq->seq);
+    rcnuc = reverse_complement(seq->seq);
+    if(NULL==rcnuc.elt){ goto cleanup;}
+    FREE_ARRAY(NUC)(newseq->seq);
     newseq->seq = rcnuc;
     
     return newseq;
     
 cleanup:
-    safe_free(rcnuc);
+    FREE_ARRAY(NUC)(rcnuc);
     free_SEQ(newseq);
     return NULL;
 }

@@ -236,8 +236,8 @@ MODEL new_MODEL_from_file( const CSTRING filename ){
 }
 
 
-MAT generate_pure_intensities ( const real_t sdfact, const real_t lambda, const NUC * seq, const uint32_t ncycle, const MAT chol, MAT ints){
-    validate(NULL!=seq,NULL);
+MAT generate_pure_intensities ( const real_t sdfact, const real_t lambda, const ARRAY(NUC) seq, const uint32_t ncycle, const MAT chol, MAT ints){
+    validate(NULL!=seq.elt,NULL);
     validate(NULL!=chol,NULL);
     if(NULL==ints){
         ints = new_MAT(NBASE*ncycle,1);
@@ -249,8 +249,8 @@ MAT generate_pure_intensities ( const real_t sdfact, const real_t lambda, const 
     if(1.0!=sdfact){scale_MAT(ints,sdfact);}
     for ( uint32_t i=0 ; i<ncycle ; i++){
         // Assume that ambiguity in the sequence is a no call
-        if ( NUC_AMBIG != seq[i]){
-            ints->x[NBASE*i+seq[i]] += lambda;
+        if ( NUC_AMBIG != seq.elt[i]){
+            ints->x[NBASE*i+seq.elt[i]] += lambda;
         }
     }
     

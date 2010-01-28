@@ -361,19 +361,19 @@ int main( int argc, char * argv[] ){
         fprint_intensities(stdout,"",loglike,false);
         calls = call_by_maximum_likelihood(loglike,calls);
         for ( uint32_t i=0 ; i<model->ncycle ; i++){
-            if(calls[i] != seq->seq[i]){ error[i]++;}
+            if(calls[i] != seq->seq.elt[i]){ error[i]++;}
         }
         if ( model->paired ){
             if(simopt->unequal){ lambda = rweibull(model->shape,model->scale); }
-            NUC * rcseq = reverse_complement(seq->seq,seq->length);
+            ARRAY(NUC) rcseq = reverse_complement(seq->seq);
             intensities = generate_pure_intensities(simopt->sdfact,lambda,rcseq,model->ncycle,model->chol2,intensities);
             loglike = likelihood_cycle_intensities(simopt->sdfact,simopt->mu,lambda,intensities,model->invchol2,loglike);
             fprint_intensities(stdout,"",loglike,false);
             calls = call_by_maximum_likelihood(loglike,calls);
             for ( uint32_t i=0 ; i<model->ncycle ; i++){
-                if(calls[i] != rcseq[i]){ error2[i]++;}
+                if(calls[i] != rcseq.elt[i]){ error2[i]++;}
             }
-            safe_free(rcseq);
+            FREE_ARRAY(NUC)(rcseq);
         }
         fputc('\n',stdout);
         free_SEQ(seq);
