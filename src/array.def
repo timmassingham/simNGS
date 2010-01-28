@@ -1,0 +1,34 @@
+#include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
+
+#ifndef _ARRAY_GH
+#define _ARRAY_GH
+	#define ARRAY(A)	struct _array_ ## A
+#endif
+
+struct X(_array_) {
+	X()   * elt;
+	uint32_t nelt;
+};
+
+static struct X(_array_) X(new_array_) ( uint32_t nelt){
+	struct X(_array_) arry = {0,0};
+	arry.elt = calloc(nelt,sizeof(*arry.elt));
+	if(NULL!=arry.elt){ arry.nelt = nelt;}
+	return arry;
+}
+
+static void X(free_array_) ( struct X(_array_) arry ){
+	free(arry.elt);
+}
+
+static struct X(_array_) X(copy_array_) ( const struct X(_array_) array ){
+	struct X(_array_) new_array = {0,0};
+	new_array.elt = calloc(array.nelt,sizeof(*new_array.elt));
+	if(NULL==new_array.elt){ return new_array; }
+	new_array.nelt = array.nelt;
+	memcpy(new_array.elt,array.elt,array.nelt*sizeof(*new_array.elt));
+	return new_array;
+}
+
