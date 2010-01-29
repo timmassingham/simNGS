@@ -73,7 +73,8 @@ static inline bool bool_from_int( const int n){
     _TYPE new_ ## _TYPE   ( void);              \
     void free_ ## _TYPE  ( _TYPE _val);         \
     _TYPE copy_ ## _TYPE ( const _TYPE _val);   \
-    void show_ ## _TYPE  ( FILE * fp, const _TYPE _val)
+    void show_ ## _TYPE  ( FILE * fp, const _TYPE _val); \
+    _TYPE read_ ## _TYPE ( FILE *  fp);
 
 BASIC_INTERFACE(char);
 BASIC_INTERFACE(int);
@@ -98,5 +99,8 @@ CSTRING new_CSTRING(const size_t len);
 void free_CSTRING(CSTRING cstr);
 CSTRING copy_CSTRING(const CSTRING cstr);
 void show_CSTRING(FILE *fp, const CSTRING cstr);
+CSTRING read_CSTRING(FILE *fp);
+
+int skipUntilChar ( FILE * fp, const char c);
 
 #endif

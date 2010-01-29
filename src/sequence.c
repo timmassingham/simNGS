@@ -36,8 +36,8 @@ void free_SEQ ( SEQ seq ){
    validate(NULL!=seq,);
    if ( NULL!=seq->name ){ safe_free(seq->name); }
    if ( NULL!=seq->qname){ safe_free(seq->qname);}
-   if ( NULL!=seq->seq.elt  ){ FREE_ARRAY(NUC)(seq->seq); }
-   if ( NULL!=seq->qual.elt ){ FREE_ARRAY(PHREDCHAR)(seq->qual); }
+   if ( NULL!=seq->seq.elt  ){ free_ARRAY(NUC)(seq->seq); }
+   if ( NULL!=seq->qual.elt ){ free_ARRAY(PHREDCHAR)(seq->qual); }
    safe_free(seq);
 }
 
@@ -47,10 +47,10 @@ SEQ new_SEQ (const uint32_t len, const bool has_qual){
    if(NULL==seq){return NULL;}
    seq->name = NULL;
    seq->qname = NULL;
-   seq->seq = NEW_ARRAY(NUC)(len);
+   seq->seq = new_ARRAY(NUC)(len);
    if(NULL==seq->seq.elt){ goto cleanup; }
    if(has_qual){
-      seq->qual = NEW_ARRAY(PHREDCHAR)(len);
+      seq->qual = new_ARRAY(PHREDCHAR)(len);
       if(NULL==seq->qual.elt){ goto cleanup; }
    }
 
@@ -170,19 +170,6 @@ char * read_until(FILE * fp, const char target, const bool skipSpace){
    return cstr;
 }
 
-/*  Utility function. Skip until find character
- * Returns character on success or EOF if character
- * not found before end of file
- */
-int skipUntilChar ( FILE * fp, const char c){
-   assert(NULL!=fp);
-
-   int n;
-   do {
-      n = fgetc(fp);
-   } while (EOF!=n && c!=n);
-   return n;
-}
 
 SEQ sequence_from_fasta ( FILE * fp){
    char *name=NULL, *cseq=NULL;
@@ -256,7 +243,7 @@ SEQ sequence_from_file ( FILE * fp){
 }
 
 SEQ reverse_complement_SEQ( const SEQ seq){
-    ARRAY(NUC) rcnuc = NULL_ARRAY(NUC);
+    ARRAY(NUC) rcnuc = null_ARRAY(NUC);
     SEQ newseq = NULL;
     
     validate(NULL!=seq,NULL);
@@ -264,13 +251,13 @@ SEQ reverse_complement_SEQ( const SEQ seq){
     validate(NULL!=newseq,NULL);
     rcnuc = reverse_complement(seq->seq);
     if(NULL==rcnuc.elt){ goto cleanup;}
-    FREE_ARRAY(NUC)(newseq->seq);
+    free_ARRAY(NUC)(newseq->seq);
     newseq->seq = rcnuc;
     
     return newseq;
     
 cleanup:
-    FREE_ARRAY(NUC)(rcnuc);
+    free_ARRAY(NUC)(rcnuc);
     free_SEQ(newseq);
     return NULL;
 }

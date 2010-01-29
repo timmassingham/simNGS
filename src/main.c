@@ -373,7 +373,7 @@ int main( int argc, char * argv[] ){
             for ( uint32_t i=0 ; i<model->ncycle ; i++){
                 if(calls[i] != rcseq.elt[i]){ error2[i]++;}
             }
-            FREE_ARRAY(NUC)(rcseq);
+            free_ARRAY(NUC)(rcseq);
         }
         fputc('\n',stdout);
         free_SEQ(seq);

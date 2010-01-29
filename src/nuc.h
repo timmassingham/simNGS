@@ -35,12 +35,14 @@ typedef char NUC;
 #define NUC_T       3
 
 typedef char PHREDCHAR;
-typedef char FLOW;
+
+void show_NUC(FILE * fp, const NUC nuc);
+void show_PHREDCHAR(FILE * fp, const PHREDCHAR nuc);
+
+NUC read_NUC(FILE * fp);
+PHREDCHAR read_PHREDCHAR(FILE * fp);
 
 #define X(A) A ## NUC
-#include "array.def"
-#undef X
-#define X(A) A ## FLOW
 #include "array.def"
 #undef X
 #define X(A) A ## PHREDCHAR
@@ -48,15 +50,12 @@ typedef char FLOW;
 #undef X
 
 
-void show_NUC(FILE * fp, const NUC nuc);
     
 NUC nuc_from_char( const char c);
 char char_from_nuc(const NUC nuc);
 NUC complement(const NUC nuc);
 ARRAY(NUC) reverse_complement(const ARRAY(NUC) nucs);
 PHREDCHAR phredchar_from_char( const char c);
-ARRAY(FLOW) flows_from_nucs( const ARRAY(NUC) nucs, const ARRAY(NUC) flow_order);
-ARRAY(NUC) nucs_from_flow( const ARRAY(FLOW) flows, const ARRAY(NUC) flow_order);
 
 #endif
 
