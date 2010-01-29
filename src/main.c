@@ -45,12 +45,20 @@ void fprint_usage( FILE * fp){
 "\t       [-i filename] [-l lane] [-p] [-r mu] [-s seed] [-t tile] [-u]\n"
 "\t       [-v factor ]  runfile\n"
 "\tsimNGS --help\n"
+"\tsimNGS --licence\n"
 "simNGS reads from stdin and writes to stdout. Messages and progess\n"
 "indicators are written to stderr.\n"
 "\n"
 "Example:\n"
 "\tcat sequences.fa | simNGS runfile > sequences.like\n"
 ,fp);
+}
+
+void fprint_licence (FILE * fp){
+    validate(NULL!=fp,);
+    fputs(
+#include "copyright.txt"
+    ,fp);
 }
 
 void fprint_help( FILE * fp){
@@ -117,7 +125,8 @@ static struct option longopts[] = {
     { "tile",       required_argument, NULL, 't' },
     { "unequal",    no_argument,       NULL, 'u' },
     { "variance",   required_argument, NULL, 'v' },
-    { "help",       no_argument,       NULL, 'h' }
+    { "help",       no_argument,       NULL, 'h' },
+    { "licence",    no_argument,       NULL, 0 },
 };
 
 bool parse_bool( const CSTRING str){
@@ -274,6 +283,9 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
         case 'h':
             fprint_usage(stderr);
             fprint_help(stderr);
+            exit(EXIT_SUCCESS);
+        case 0:
+            fprint_licence(stderr);
             exit(EXIT_SUCCESS);
         default:
             fprint_usage(stderr);

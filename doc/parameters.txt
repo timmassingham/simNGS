@@ -6,6 +6,7 @@
 	       [-i filename ] [-l lane] [-p] [-r mu] [-s seed] [-t tile] [-u]
                [-v factor ] runfile
 	simNGS --help
+        simNGS --licence
 
 
 ** Detailed description
