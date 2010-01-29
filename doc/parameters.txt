@@ -3,8 +3,8 @@
 ** Usage
 
 	simNGS [-b shape:scale][-c ncycle] [-d] [-f nimpure:ncycle:threshold]
-	       [-l lane] [-p] [-r mu] [-s seed] [-t tile] [-u] [-v factor ]
-	       runfile
+	       [-i filename ] [-l lane] [-p] [-r mu] [-s seed] [-t tile] [-u]
+               [-v factor ] runfile
 	simNGS --help
 
 
@@ -38,6 +38,12 @@ runfile.
 nimpure cyles in the first ncycles with a purity greater than threshold. If
 the greatest intensity at a cycle is M and the second greatest is N then the
 purity is M / (M+N).
+
+
+-i, --intensities filename [default: none]
+	Write (processed) intensities to "filename" in a format identical to that
+as the likelihoods but with each likelihood replaced by its corresponding
+intensity.
 
 
 -l, --lane lane [default: as runfile]

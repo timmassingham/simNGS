@@ -42,8 +42,8 @@ void fprint_usage( FILE * fp){
 "\n"
 "Usage:\n"
 "\tsimNGS [-b shape:scale][-c ncycle] [-d] [-f nimpure:ncycle:threshold]\n"
-"\t       [-l lane] [-p] [-r mu] [-s seed] [-t tile] [-u] [-v factor ]\n"
-"\t       runfile\n"
+"\t       [-i filename] [-l lane] [-p] [-r mu] [-s seed] [-t tile] [-u]\n"
+"\t       [-v factor ]  runfile\n"
 "\tsimNGS --help\n"
 "simNGS reads from stdin and writes to stdout. Messages and progess\n"
 "indicators are written to stderr.\n"
@@ -70,6 +70,9 @@ void fprint_help( FILE * fp){
 "-f, --filter nimpure:ncycle:threshold [default: no filtering]\n"
 "\tUse purity filtering on generated intensities, allowing a maximum of\n"
 "nimpure cyles in the first ncycles with a purity greater than threshold.\n"
+"\n"
+"-i, --intensities filename [default: none]\n"
+"\tWrite the processed intensities generated to \"filename\".\n"
 "\n"
 "-l, --lane lane [default: as runfile]\n"
 "\tSet lane number\n"
@@ -103,6 +106,7 @@ static struct option longopts[] = {
     { "cycles",     required_argument, NULL, 'c' },
     { "describe",   no_argument,       NULL, 'd' },
     { "filter",     required_argument, NULL, 'f' },
+    { "intensities", required_argument, NULL, 'i'},
     { "lane",       required_argument, NULL, 'l' },
     { "paired",     no_argument,       NULL, 'p' },
     { "robust",     required_argument, NULL, 'r' },
@@ -151,6 +155,7 @@ typedef struct {
     uint32_t tile,lane;
     real_t purity_threshold;
     uint32_t purity_cycles,purity_max;
+    CSTRING intensity_fn;
 } * SIMOPT;
 
 SIMOPT new_SIMOPT(void){
@@ -171,6 +176,7 @@ SIMOPT new_SIMOPT(void){
     opt->purity_threshold = 0.;
     opt->purity_cycles = 0;
     opt->purity_max = 0;
+    opt->intensity_fn = NULL;
     
     return opt;
 }
@@ -185,6 +191,9 @@ SIMOPT copy_SIMOPT ( const SIMOPT simopt){
     SIMOPT newopt = calloc(1,sizeof(*newopt));
     validate(NULL!=newopt,NULL);
     memcpy(newopt,simopt,sizeof(*simopt));
+    if(NULL!=simopt->intensity_fn){
+        newopt->intensity_fn = copy_CSTRING(simopt->intensity_fn);
+    }
     return newopt;
 }
 
@@ -206,6 +215,9 @@ void show_SIMOPT (FILE * fp, const SIMOPT simopt){
     } else {
        fputs("No purity filtering.\n",stdout);
     }
+    if(NULL!=simopt->intensity_fn){
+        fprintf(fp,"Will write intensities to \"%s\"\n",simopt->intensity_fn);
+    }
 }
 
 SIMOPT parse_arguments( const int argc, char * const argv[] ){
@@ -213,7 +225,7 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
     SIMOPT simopt = new_SIMOPT();
     validate(NULL!=simopt,NULL);
     
-    while ((ch = getopt_long(argc, argv, "b:c:df:l:pr:s:t:uv:h", longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "b:c:df:i:l:pr:s:t:uv:h", longopts, NULL)) != -1){
         int ret;
         unsigned long int i=0,j=0;
         switch(ch){
@@ -234,6 +246,8 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
                     if( simopt->purity_threshold<0. || simopt->purity_threshold>1.0){
                         errx(EXIT_FAILURE,"Purity threshold is %f but should be between 0 and 1.",simopt->purity_threshold);
                     }
+                    break;
+        case 'i':   simopt->intensity_fn = copy_CSTRING(optarg);
                     break;
         case 'l':   simopt->lane = parse_uint(optarg);
                     if(simopt->lane==0){errx(EXIT_FAILURE,"Lane number must be greater than zero.");}
@@ -373,6 +387,11 @@ int main( int argc, char * argv[] ){
     // Memory for error counting
     uint32_t * error = calloc(model->ncycle,sizeof(uint32_t));
     uint32_t * error2 = calloc(model->ncycle,sizeof(uint32_t));
+    
+    FILE * fpout = (NULL!=simopt->intensity_fn) ? fopen(simopt->intensity_fn,"w") : NULL;
+    if ( NULL==fpout && NULL!=simopt->intensity_fn){
+        fprintf(stderr,"Failed to open \"%s\" for writing.\n",simopt->intensity_fn);
+    }
 
     while ((seq=sequence_from_fasta(fp))!=NULL){
         //show_SEQ(stderr,seq);
@@ -386,6 +405,12 @@ int main( int argc, char * argv[] ){
         loglike = likelihood_cycle_intensities(simopt->sdfact,simopt->mu,lambda,intensities,model->invchol1,loglike);
         uint32_t x = (uint32_t)( 1794 * runif());
         uint32_t y = (uint32_t)( 2048 * runif());
+
+        if(NULL!=fpout){
+            fprintf(fpout,"%u\t%u\t%u\t%u",model->lane,model->tile,x,y);
+            fprint_intensities(fpout,"",intensities,false);
+        }
+
         fprintf(stdout,"%u\t%u\t%u\t%u",model->lane,model->tile,x,y);
         if ( number_inpure_cycles(intensities,simopt->purity_threshold,simopt->purity_cycles) <= simopt->purity_max){
             fprint_intensities(stdout,"",loglike,false);
@@ -398,6 +423,7 @@ int main( int argc, char * argv[] ){
                 ARRAY(NUC) rcseq = reverse_complement(seq->seq);
                 intensities = generate_pure_intensities(simopt->sdfact,lambda,rcseq,model->ncycle,model->chol2,intensities);
                 loglike = likelihood_cycle_intensities(simopt->sdfact,simopt->mu,lambda,intensities,model->invchol2,loglike);
+                if(NULL!=fpout){ fprint_intensities(fpout,"",intensities,false); }
                 fprint_intensities(stdout,"",loglike,false);
                 calls = call_by_maximum_likelihood(loglike,calls);
                 for ( uint32_t i=0 ; i<model->ncycle ; i++){
@@ -408,12 +434,14 @@ int main( int argc, char * argv[] ){
             unfiltered_count++;
         }
         fputc('\n',stdout);
+        if(NULL!=fpout){ fputc('\n',fpout); }
         free_SEQ(seq);
         seq_count++;
         if( (seq_count%1000)==0 ){ fprintf(stderr,"\rDone: %8u",seq_count); }
     }
     fprintf(stderr,"\rFinished generating %8u sequences\n",seq_count);
     if(simopt->purity_cycles>0){ fprintf(stderr,"%8u sequences passed filter.\n",unfiltered_count);}
+    if(NULL!=fpout){fclose(fpout);}
     safe_free(calls);
     free_MAT(loglike);
     free_MAT(intensities);

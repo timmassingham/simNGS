@@ -35,7 +35,7 @@ _FREE(char)
 _COPY(char)
 char new_char( void ){ return 0;}
 void show_char( FILE * fp, const char c){ fputc(c,fp); }
-char read_char( FILE * fp){ fgetc(fp);}
+char read_char( FILE * fp){ return fgetc(fp);}
 
 /* bool */
 _FREE(bool)
