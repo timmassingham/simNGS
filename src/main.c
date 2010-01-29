@@ -47,6 +47,9 @@ void fprint_usage( FILE * fp){
 "\tsimNGS --help\n"
 "simNGS reads from stdin and writes to stdout. Messages and progess\n"
 "indicators are written to stderr.\n"
+"\n"
+"Example:\n"
+"\tcat sequences.fa | simNGS runfile > sequences.like\n"
 ,fp);
 }
 
