@@ -41,8 +41,9 @@ void fprint_usage( FILE * fp){
 "Simulate likelihoods for Illumina data from fasta format files\n"
 "\n"
 "Usage:\n"
-"\tsimNGS [-b shape,scale][-c ncycles] [-d] [-l lane] [-p]\n"
-"\t       [-r mu] [-s seed] [-t tile] [-u] [-v factor ] runfile\n"
+"\tsimNGS [-b shape:scale][-c ncycle] [-d] [-f nimpure:ncycle:threshold]\n"
+"\t       [-l lane] [-p] [-r mu] [-s seed] [-t tile] [-u] [-v factor ]\n"
+"\t       runfile\n"
 "\tsimNGS --help\n"
 "simNGS reads from stdin and writes to stdout. Messages and progess\n"
 "indicators are written to stderr.\n"
@@ -56,7 +57,7 @@ void fprint_help( FILE * fp){
 12345678901234567890123456789012345678901234567890123456789012345678901234567890
 */
 "\n"
-"-b, --brightness shape,scale [default: as runfile]\n"
+"-b, --brightness shape:scale [default: as runfile]\n"
 "\tShape and scale of cluster brightnes distribution.\n"
 "Currently a Weibull distribution is used.\n"
 "\n"
@@ -65,6 +66,10 @@ void fprint_help( FILE * fp){
 "\n"
 "-d, --describe\n"
 "\tPrint a description of the runfile and exit.\n"
+"\n"
+"-f, --filter nimpure:ncycle:threshold [default: no filtering]\n"
+"\tUse purity filtering on generated intensities, allowing a maximum of\n"
+"nimpure cyles in the first ncycles with a purity greater than threshold.\n"
 "\n"
 "-l, --lane lane [default: as runfile]\n"
 "\tSet lane number\n"
@@ -97,6 +102,7 @@ static struct option longopts[] = {
     { "brightness", required_argument, NULL, 'b' },
     { "cycles",     required_argument, NULL, 'c' },
     { "describe",   no_argument,       NULL, 'd' },
+    { "filter",     required_argument, NULL, 'f' },
     { "lane",       required_argument, NULL, 'l' },
     { "paired",     no_argument,       NULL, 'p' },
     { "robust",     required_argument, NULL, 'r' },
@@ -143,6 +149,8 @@ typedef struct {
     real_t mu,sdfact;
     uint32_t seed;
     uint32_t tile,lane;
+    real_t purity_threshold;
+    uint32_t purity_cycles,purity_max;
 } * SIMOPT;
 
 SIMOPT new_SIMOPT(void){
@@ -159,7 +167,10 @@ SIMOPT new_SIMOPT(void){
     opt->seed = 0;
     opt->sdfact = 1.0;
     opt->tile = 0;
-    opt->lane = 0;    
+    opt->lane = 0;
+    opt->purity_threshold = 0.;
+    opt->purity_cycles = 0;
+    opt->purity_max = 0;
     
     return opt;
 }
@@ -190,6 +201,11 @@ void show_SIMOPT (FILE * fp, const SIMOPT simopt){
     fprintf( fp,"variance factor\t%f\n",simopt->sdfact*simopt->sdfact);
     fprintf( fp,"tile\t%u\tlane%u\n",simopt->tile,simopt->lane);
     fprintf( fp,"seed\t%u\n",simopt->seed);
+    if(simopt->purity_cycles!=0){
+       fprintf( fp,"Purity filtering: threshold %f. Maximum of %u inpure in %u cycles\n",simopt->purity_threshold, simopt->purity_max,simopt->purity_cycles);
+    } else {
+       fputs("No purity filtering.\n",stdout);
+    }
 }
 
 SIMOPT parse_arguments( const int argc, char * const argv[] ){
@@ -197,32 +213,45 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
     SIMOPT simopt = new_SIMOPT();
     validate(NULL!=simopt,NULL);
     
-    while ((ch = getopt_long(argc, argv, "b:c:dl:pr:s:t:uv:h", longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "b:c:df:l:pr:s:t:uv:h", longopts, NULL)) != -1){
+        int ret;
+        unsigned long int i=0,j=0;
         switch(ch){
-        case 'b':   sscanf(optarg,real_format_str "," real_format_str ,&simopt->shape,&simopt->scale);
+        case 'b':   ret = sscanf(optarg,real_format_str ":" real_format_str ,&simopt->shape,&simopt->scale);
+                    if(ret!=2){ errx(EXIT_FAILURE,"Insufficient arguments for brightness.");}
+                    if(simopt->shape<=0.){ errx(EXIT_FAILURE,"Brightness shape must be greater than zero."); }
+                    if(simopt->scale<=0.){ errx(EXIT_FAILURE,"Brightness scale must be greater than zero."); }
                     break;
         case 'c':   sscanf(optarg,"%u",&simopt->ncycle);
-                    if(simopt->ncycle==0){errx(EXIT_FAILURE,"Number of cycles to simulate must be greater than zero.\n");}
+                    if(simopt->ncycle==0){errx(EXIT_FAILURE,"Number of cycles to simulate must be greater than zero.");}
                     break;
         case 'd':   simopt->desc = true;
                     break;
+        case 'f':   ret = sscanf(optarg, "%lu:%lu:" real_format_str,&i,&j,&simopt->purity_threshold);
+                    if(ret!=3){ errx(EXIT_FAILURE,"Insufficient arguments for filtering.");}
+                    simopt->purity_max = i;
+                    simopt->purity_cycles = j;
+                    if( simopt->purity_threshold<0. || simopt->purity_threshold>1.0){
+                        errx(EXIT_FAILURE,"Purity threshold is %f but should be between 0 and 1.",simopt->purity_threshold);
+                    }
+                    break;
         case 'l':   simopt->lane = parse_uint(optarg);
-                    if(simopt->lane==0){errx(EXIT_FAILURE,"Lane number must be greater than zero.\n");}
+                    if(simopt->lane==0){errx(EXIT_FAILURE,"Lane number must be greater than zero.");}
                     break;
         case 'p':   simopt->paired = true;
                     break;
         case 'r':   simopt->mu = parse_real(optarg);
-                    if(simopt->mu<0.0){errx(EXIT_FAILURE,"Robustness \"mu\" must be non-negative.\n");}
+                    if(simopt->mu<0.0){errx(EXIT_FAILURE,"Robustness \"mu\" must be non-negative.");}
                     break;
         case 's':   simopt->seed = parse_uint(optarg);
                     break;
         case 't':   simopt->tile = parse_uint(optarg);
-                    if(simopt->tile==0){errx(EXIT_FAILURE,"Tile number must be greater than zero.\n");}
+                    if(simopt->tile==0){errx(EXIT_FAILURE,"Tile number must be greater than zero.");}
                     break;
         case 'u':   simopt->unequal = true;
                     break;
         case 'v':   simopt->sdfact = parse_real(optarg);
-                    if(simopt->sdfact<0.0){errx(EXIT_FAILURE,"Variance scaling factor must be non-negative.\n");}
+                    if(simopt->sdfact<0.0){errx(EXIT_FAILURE,"Variance scaling factor must be non-negative.");}
                     simopt->sdfact = sqrt(simopt->sdfact);
                     break;
         case 'h':
@@ -340,7 +369,7 @@ int main( int argc, char * argv[] ){
     NUC * calls = NULL;
     SEQ seq = NULL;
     FILE * fp = stdin;// fopen("test/test100_small.fa","r")
-    uint32_t seq_count = 0;
+    uint32_t seq_count=0, unfiltered_count=0;
     // Memory for error counting
     uint32_t * error = calloc(model->ncycle,sizeof(uint32_t));
     uint32_t * error2 = calloc(model->ncycle,sizeof(uint32_t));
@@ -358,22 +387,25 @@ int main( int argc, char * argv[] ){
         uint32_t x = (uint32_t)( 1794 * runif());
         uint32_t y = (uint32_t)( 2048 * runif());
         fprintf(stdout,"%u\t%u\t%u\t%u",model->lane,model->tile,x,y);
-        fprint_intensities(stdout,"",loglike,false);
-        calls = call_by_maximum_likelihood(loglike,calls);
-        for ( uint32_t i=0 ; i<model->ncycle ; i++){
-            if(calls[i] != seq->seq.elt[i]){ error[i]++;}
-        }
-        if ( model->paired ){
-            if(simopt->unequal){ lambda = rweibull(model->shape,model->scale); }
-            ARRAY(NUC) rcseq = reverse_complement(seq->seq);
-            intensities = generate_pure_intensities(simopt->sdfact,lambda,rcseq,model->ncycle,model->chol2,intensities);
-            loglike = likelihood_cycle_intensities(simopt->sdfact,simopt->mu,lambda,intensities,model->invchol2,loglike);
+        if ( number_inpure_cycles(intensities,simopt->purity_threshold,simopt->purity_cycles) <= simopt->purity_max){
             fprint_intensities(stdout,"",loglike,false);
             calls = call_by_maximum_likelihood(loglike,calls);
             for ( uint32_t i=0 ; i<model->ncycle ; i++){
-                if(calls[i] != rcseq.elt[i]){ error2[i]++;}
+                if(calls[i] != seq->seq.elt[i]){ error[i]++;}
             }
-            free_ARRAY(NUC)(rcseq);
+            if ( model->paired ){
+                if(simopt->unequal){ lambda = rweibull(model->shape,model->scale); }
+                ARRAY(NUC) rcseq = reverse_complement(seq->seq);
+                intensities = generate_pure_intensities(simopt->sdfact,lambda,rcseq,model->ncycle,model->chol2,intensities);
+                loglike = likelihood_cycle_intensities(simopt->sdfact,simopt->mu,lambda,intensities,model->invchol2,loglike);
+                fprint_intensities(stdout,"",loglike,false);
+                calls = call_by_maximum_likelihood(loglike,calls);
+                for ( uint32_t i=0 ; i<model->ncycle ; i++){
+                    if(calls[i] != rcseq.elt[i]){ error2[i]++;}
+                }
+                free_ARRAY(NUC)(rcseq);
+            }
+            unfiltered_count++;
         }
         fputc('\n',stdout);
         free_SEQ(seq);
@@ -381,6 +413,7 @@ int main( int argc, char * argv[] ){
         if( (seq_count%1000)==0 ){ fprintf(stderr,"\rDone: %8u",seq_count); }
     }
     fprintf(stderr,"\rFinished generating %8u sequences\n",seq_count);
+    if(simopt->purity_cycles>0){ fprintf(stderr,"%8u sequences passed filter.\n",unfiltered_count);}
     safe_free(calls);
     free_MAT(loglike);
     free_MAT(intensities);
@@ -390,11 +423,11 @@ int main( int argc, char * argv[] ){
     fputs("Cycle  Count  Phred   lower, upper",stderr);
     if(simopt->paired){ fputs("   Count  Phred   lower, upper",stderr);}
     for ( uint32_t i=0 ; i<model->ncycle ; i++){
-        const real_t e = ((real_t)error[i])/seq_count;
-	fprintf(stderr,"\n%3u: %7u %6.2f (%6.2f,%6.2f)",i+1,error[i], phred(e), phred(prop_upper(e,seq_count)), phred(prop_lower(e,seq_count)));
+        const real_t e = ((real_t)error[i])/unfiltered_count;
+	fprintf(stderr,"\n%3u: %7u %6.2f (%6.2f,%6.2f)",i+1,error[i], phred(e), phred(prop_upper(e,unfiltered_count)), phred(prop_lower(e,unfiltered_count)));
         if(simopt->paired){ 
-            const real_t e2 = ((real_t)error2[i])/seq_count;
-            fprintf(stderr,"%7u %6.2f (%6.2f,%6.2f)",error2[i], phred(e2), phred(prop_upper(e2,seq_count)), phred(prop_lower(e2,seq_count)));
+            const real_t e2 = ((real_t)error2[i])/unfiltered_count;
+            fprintf(stderr,"%7u %6.2f (%6.2f,%6.2f)",error2[i], phred(e2), phred(prop_upper(e2,unfiltered_count)), phred(prop_lower(e2,unfiltered_count)));
         }
     }
     fputc('\n',stderr);

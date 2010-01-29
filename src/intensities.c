@@ -373,7 +373,34 @@ NUC * call_by_maximum_likelihood(const MAT likelihood, NUC * calls){
     return calls;
 }
 
-#ifdef TESTINT
+real_t purity ( const real_t * ints4 ){
+    real_t max1=fabs(ints4[0]);
+    real_t max2=fabs(ints4[1]);
+    if(max1<max2){ SWAP(max1,max2); }
+    for ( int i=2 ; i<NBASE ; i++){
+        real_t a = fabs(ints4[i]);
+        if(max1<a){
+            max2 = max1;
+            max1 = a;
+        } else if(max2<a){
+            max2 = a;
+        }
+    }
+    return max1/(max1+max2);
+}
+
+uint32_t number_inpure_cycles( const MAT intensities, const real_t threshold, const uint32_t ncycle){
+    validate(NULL!=intensities,0);
+    const real_t mcycle = (ncycle<intensities->ncol) ? ncycle : intensities->ncol;
+    uint32_t count = 0;
+    for ( uint32_t i=0 ; i<mcycle ; i++){
+        real_t p = purity(intensities->x+i*NBASE);
+        if(p<threshold){ count++;}
+    }
+    return count;
+}
+
+#ifdef TEST
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

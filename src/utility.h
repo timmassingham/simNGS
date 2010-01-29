@@ -31,6 +31,7 @@
 
 
 #define safe_free(A) { if(NULL!=(A)){free(A);} (A)=NULL; }
+#define SWAP(A,B) { typeof(A) tmp = A; A=B; B=tmp; }
 
 
 #ifdef FAILEARLY

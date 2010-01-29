@@ -2,8 +2,9 @@
 
 ** Usage
 
-	simNGS [-b shape,scale][-c ncycles] [-d] [-l lane] [-p]
-	       [-r mu] [-s seed] [-t tile] [-u] [-v factor ] runfile
+	simNGS [-b shape:scale][-c ncycle] [-d] [-f nimpure:ncycle:threshold]
+	       [-l lane] [-p] [-r mu] [-s seed] [-t tile] [-u] [-v factor ]
+	       runfile
 	simNGS --help
 
 
@@ -30,6 +31,13 @@ runfile.
 
 -d, --describe
 	Print a description of the runfile and exit.
+
+
+-f, --filter nimpure:ncycle:threshold [default: no filtering]
+	Use purity filtering on generated intensities, allowing a maximum of
+nimpure cyles in the first ncycles with a purity greater than threshold. If
+the greatest intensity at a cycle is M and the second greatest is N then the
+purity is M / (M+N).
 
 
 -l, --lane lane [default: as runfile]

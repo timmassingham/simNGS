@@ -25,6 +25,7 @@ Compiling:
 	make -f Makefile.linux
 which should produce a binary "bin/simNGS".
 
+
 ** Usage
 	Fasta format sequence are read from stdin and log-likelihoods for the
 sequences, after the addition of noise, are written to stdout in a format 
@@ -76,6 +77,8 @@ encoded as -log(likelihood), so smaller values are the more likely, and the
 difference between these values (a function of the likelihood-ratio statistic) 
 is a measure of the relative confidence between two calls.
 
+No intensities are given for clusters which fail to pass the purity filter.
+
 
 ** Output format
 	The output from simNGS is a simple format based on the "_int.txt" from
@@ -88,7 +91,7 @@ real numbers in C-style "%e" form.
 
 More formally, the grammar in Extended Backus-Naur form is:
 	FILE ::= LINE +
-	LINE ::= LANE , "\t" , TILE , "\t" , X , "\t" , Y , LOGLIKES + , EOL
+	LINE ::= LANE , "\t" , TILE , "\t" , X , "\t" , Y , LOGLIKES * , EOL
 	TILE ::= digit +
 	LANE ::= digit +
 	X    ::= digit +
