@@ -32,6 +32,7 @@
 #include "utility.h"
 #include "intensities.h"
 #include "weibull.h"
+#include "normal.h"
 
 
 void fprint_usage( FILE * fp){
@@ -41,8 +42,9 @@ void fprint_usage( FILE * fp){
 "Simulate likelihoods for Illumina data from fasta format files\n"
 "\n"
 "Usage:\n"
-"\tsimNGS [-b shape:scale][-c ncycle] [-d] [-f nimpure:ncycle:threshold]\n"
-"\t       [-i filename] [-l lane] [-p] [-r mu] [-s seed] [-t tile] [-u]\n"
+"\tsimNGS [-b shape:scale][-c correlation] [-d]\n"
+"\t       [-f nimpure:ncycle:threshold] [-i filename]\n"
+"\t       [-l lane] [-n ncycle] [-p] [-r mu] [-s seed] [-t tile]\n"
 "\t       [-v factor ]  runfile\n"
 "\tsimNGS --help\n"
 "\tsimNGS --licence\n"
@@ -72,8 +74,10 @@ void fprint_help( FILE * fp){
 "\tShape and scale of cluster brightnes distribution.\n"
 "Currently a Weibull distribution is used.\n"
 "\n"
-"-c, --cycles ncycles [default: as runfile]\n"
-"\tNumber of cycles to do, up to maximum allowed for runfile.\n"
+"-c, --correlation [default: 1.0]\n"
+"\tCorrelation between the cluster brightness of one end of a paired-end\n"
+"run and the other. Default is complete correlation, the ends having equal\n"
+"brightness. Correlation should belong to [-1,1].\n"
 "\n"
 "-d, --describe\n"
 "\tPrint a description of the runfile and exit.\n"
@@ -87,6 +91,9 @@ void fprint_help( FILE * fp){
 "\n"
 "-l, --lane lane [default: as runfile]\n"
 "\tSet lane number\n"
+"\n"
+"-n, --ncycles ncycles [default: as runfile]\n"
+"\tNumber of cycles to do, up to maximum allowed for runfile.\n"
 "\n"
 "-p, --paired\n"
 "\tTreat run as paired-end. For single-ended runs treated as\n"
@@ -103,10 +110,6 @@ void fprint_help( FILE * fp){
 "-t, --tile tile [default: as runfile\n"
 "\tSet tile number.\n"
 "\n"
-"-u, --unequal\n"
-"\tCluster brightness for pair-end data is not considered to be equal for\n"
-"both ends. The brightness of each end is sampled independently.\n"
-"\n"
 "-v, --variance factor [default: 1.0]\n"
 "\tFactor with which to scale variance matrix by.\n"
 , fp);
@@ -114,16 +117,16 @@ void fprint_help( FILE * fp){
 
 static struct option longopts[] = {
     { "brightness", required_argument, NULL, 'b' },
-    { "cycles",     required_argument, NULL, 'c' },
+    { "correlation", required_argument, NULL, 'c' },
     { "describe",   no_argument,       NULL, 'd' },
     { "filter",     required_argument, NULL, 'f' },
     { "intensities", required_argument, NULL, 'i'},
     { "lane",       required_argument, NULL, 'l' },
+    { "ncycle",     required_argument, NULL, 'n' },
     { "paired",     no_argument,       NULL, 'p' },
     { "robust",     required_argument, NULL, 'r' },
     { "seed",       required_argument, NULL, 's' },
     { "tile",       required_argument, NULL, 't' },
-    { "unequal",    no_argument,       NULL, 'u' },
     { "variance",   required_argument, NULL, 'v' },
     { "help",       no_argument,       NULL, 'h' },
     { "licence",    no_argument,       NULL, 0 },
@@ -160,8 +163,8 @@ unsigned int parse_uint( const CSTRING str){
 
 typedef struct {
     unsigned int ncycle;
-    real_t shape,scale;
-    bool paired,unequal,desc;
+    real_t shape,scale,corr;
+    bool paired,desc;
     real_t mu,sdfact;
     uint32_t seed;
     uint32_t tile,lane;
@@ -177,8 +180,8 @@ SIMOPT new_SIMOPT(void){
     opt->ncycle = 0;
     opt->shape = 0.0;
     opt->scale = 0.0;
+    opt->corr = 1.0;
     opt->paired = false;
-    opt->unequal = false;
     opt->desc = false;
     opt->mu = 0.0;
     opt->seed = 0;
@@ -215,7 +218,7 @@ void show_SIMOPT (FILE * fp, const SIMOPT simopt){
     fputs("\tOptions:\n",fp);
     fprintf( fp,"ncycle\t%u\n",simopt->ncycle);
     fprintf( fp,"paired\t%s\n",boolstr[simopt->paired]);
-    fprintf( fp,"equal brightness\t%s\n",boolstr[simopt->unequal]);
+    fprintf( fp,"Brightness correlation\t%f\n",simopt->corr);
     fprintf( fp,"mu\t%f\n",simopt->mu);
     fprintf( fp,"shape\t%f\n",simopt->shape);
     fprintf( fp,"scale\t%f\n",simopt->scale);
@@ -246,8 +249,8 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
                     if(simopt->shape<=0.){ errx(EXIT_FAILURE,"Brightness shape must be greater than zero."); }
                     if(simopt->scale<=0.){ errx(EXIT_FAILURE,"Brightness scale must be greater than zero."); }
                     break;
-        case 'c':   sscanf(optarg,"%u",&simopt->ncycle);
-                    if(simopt->ncycle==0){errx(EXIT_FAILURE,"Number of cycles to simulate must be greater than zero.");}
+        case 'c':   sscanf(optarg,"%f",&simopt->corr);
+                    if(simopt->corr<-1.0 || simopt->corr>1.0){errx(EXIT_FAILURE,"Correlation between end brightness should be in [-1,1]. Was given %f.",simopt->corr);}
                     break;
         case 'd':   simopt->desc = true;
                     break;
@@ -264,6 +267,10 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
         case 'l':   simopt->lane = parse_uint(optarg);
                     if(simopt->lane==0){errx(EXIT_FAILURE,"Lane number must be greater than zero.");}
                     break;
+        case 'n':   sscanf(optarg,"%u",&simopt->ncycle);
+                    if(simopt->ncycle==0){errx(EXIT_FAILURE,"Number of cycles to simulate must be greater than zero.");}
+                    break;
+
         case 'p':   simopt->paired = true;
                     break;
         case 'r':   simopt->mu = parse_real(optarg);
@@ -273,8 +280,6 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
                     break;
         case 't':   simopt->tile = parse_uint(optarg);
                     if(simopt->tile==0){errx(EXIT_FAILURE,"Tile number must be greater than zero.");}
-                    break;
-        case 'u':   simopt->unequal = true;
                     break;
         case 'v':   simopt->sdfact = parse_real(optarg);
                     if(simopt->sdfact<0.0){errx(EXIT_FAILURE,"Variance scaling factor must be non-negative.");}
@@ -415,9 +420,24 @@ int main( int argc, char * argv[] ){
             free_SEQ(seq);
             continue;
         }
-        real_t lambda = rweibull(model->shape,model->scale);
-        intensities = generate_pure_intensities(simopt->sdfact,lambda,seq->seq,model->ncycle,model->chol1,intensities);
-        loglike = likelihood_cycle_intensities(simopt->sdfact,simopt->mu,lambda,intensities,model->invchol1,loglike);
+        // Pick lambda using Gaussian Copula
+        real_t lambda1=NAN,lambda2=NAN;
+        {
+            const real_t corr = simopt->corr;
+            // Two correlated Gaussians
+            real_t x = rstdnorm();
+            real_t y = corr*x + sqrt(1-corr*corr) * rstdnorm();
+            // Convert to uniform deviates (the copula)
+            real_t px = pstdnorm(x,false,false);
+            real_t py = pstdnorm(y,false,false);
+            // Convert to Weibull via inversion formula
+            lambda1 = qweibull(px,simopt->shape,simopt->scale,false,false);
+            lambda2 = qweibull(py,simopt->shape,simopt->scale,false,false);
+fprintf(stderr,"%f %f   %f %f   %f %f\n",x,y,px,py,lambda1,lambda2);
+        }
+            
+        intensities = generate_pure_intensities(simopt->sdfact,lambda1,seq->seq,model->ncycle,model->chol1,intensities);
+        loglike = likelihood_cycle_intensities(simopt->sdfact,simopt->mu,lambda1,intensities,model->invchol1,loglike);
         uint32_t x = (uint32_t)( 1794 * runif());
         uint32_t y = (uint32_t)( 2048 * runif());
 
@@ -434,10 +454,10 @@ int main( int argc, char * argv[] ){
                 if(calls[i] != seq->seq.elt[i]){ error[i]++;}
             }
             if ( model->paired ){
-                if(simopt->unequal){ lambda = rweibull(model->shape,model->scale); }
+                lambda2 = rweibull(model->shape,model->scale);
                 ARRAY(NUC) rcseq = reverse_complement(seq->seq);
-                intensities = generate_pure_intensities(simopt->sdfact,lambda,rcseq,model->ncycle,model->chol2,intensities);
-                loglike = likelihood_cycle_intensities(simopt->sdfact,simopt->mu,lambda,intensities,model->invchol2,loglike);
+                intensities = generate_pure_intensities(simopt->sdfact,lambda2,rcseq,model->ncycle,model->chol2,intensities);
+                loglike = likelihood_cycle_intensities(simopt->sdfact,simopt->mu,lambda2,intensities,model->invchol2,loglike);
                 if(NULL!=fpout){ fprint_intensities(fpout,"",intensities,false); }
                 fprint_intensities(stdout,"",loglike,false);
                 calls = call_by_maximum_likelihood(loglike,calls);

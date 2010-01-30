@@ -47,6 +47,18 @@ real_t dstdnorm( const real_t x, const bool logd){
     real_t d = -0.5*(log(M_PI*2.)+x*x);
     return (false==logd)?exp(d):d;
 }
+
+/* For accuracy, should convert tail==F&&logd==T to 
+ * log(0.5)+log1p(erf(q*M_SQRT1_2))
+ */
+real_t pstdnorm( const real_t q, const bool tail, const bool logd){
+    real_t erfq = (tail==false)? 
+                       0.5*( 1.0 +  erf(q*M_SQRT1_2) ) :
+                       0.5*erfc(q*M_SQRT1_2);
+    return (logd==false)?erfq:log(erfq);
+}
+    
+
     
 
 real_t rnormal( const real_t mean, const real_t sd ){
@@ -57,6 +69,10 @@ real_t rnormal( const real_t mean, const real_t sd ){
 real_t dnorm( const real_t x, const real_t m, const real_t sd, const bool logd){
     real_t r = dstdnorm((x-m)/sd,logd);
     return (false==logd)? r/sd : r - log(sd);
+}
+
+real_t pnorm( const real_t q, const real_t m, const real_t sd, const bool tail, const bool logd){
+    return pstdnorm((q-m)/sd,tail,logd);
 }
 
 
