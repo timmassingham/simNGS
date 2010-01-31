@@ -22,7 +22,7 @@
 #ifndef _LAPACK_H
 #define _LAPACK_H
 
-#ifdef linux
+#ifdef __linux
 #define F77_NAME(A) A ## _
 #else
 #define F77_NAME(A) A

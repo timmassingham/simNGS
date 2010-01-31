@@ -22,17 +22,9 @@
 #ifndef _NORMAL_H
 #define _NORMAL_H
 
-#ifndef _UTILITY_H
 #include "utility.h"
-#endif
-
-#ifndef _STDINT_H
 #include <stdint.h>
-#endif
-
-#ifndef _MATRIX_H
 #include "matrix.h"
-#endif
 
 real_t rstdnorm( void );
 real_t dstdnorm( const real_t x, const bool logd);

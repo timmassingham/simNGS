@@ -25,13 +25,8 @@
 #ifndef MATRIX_H
 #define MATRIX_H
 
-#ifndef _STDINT_H
 #include <stdint.h>
-#endif
-
-#ifndef _UTILITY_H
 #include "utility.h"
-#endif
 
 /*  Specification did not specify what type of input should be taken. Use a
  * typedef so it can be easily changed, although care must be taken with the

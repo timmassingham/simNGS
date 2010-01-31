@@ -22,17 +22,9 @@
 #ifndef _INTENSITIES_H
 #define _INTENSITIES_H
 
-#ifndef _UTILITY_H
 #include "utility.h"
-#endif
-
-#ifndef _MATRIX_H
 #include "matrix.h"
-#endif
-
-#ifndef _NUC_H
 #include "nuc.h"
-#endif
 
 typedef struct {
     uint32_t ncycle,orig_ncycle;
