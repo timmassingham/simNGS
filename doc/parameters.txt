@@ -67,7 +67,7 @@ error characteristics. For paired-end runs treated as single, the second end is
 ignored. The covariance matrices for the ends of a paired-end run were estimated
 and stored separately, implying an assumption of independence between the two
 ends. The brightness of the cluster is assumed to be equal for both ends, which 
-can be changed using the "--unequal" option.
+can be changed using the "--correlation" option.
 
 
 -r, --robust mu [default: 0.]
@@ -97,10 +97,6 @@ clocks for example, and an explicit seed is not set.
 -t, --tile tile [default: as runfile]
 	Set tile number in the output to "tile". Tile number must be greater
 than zero but need not be a number valid for a real machine.
-
--u, --unequal
-	Cluster brightness for pair-end data is not considered to be equal for
-both ends. The brightness of each end is sampled independently.
 
 
 -v, --variance factor [default: 1.0]
