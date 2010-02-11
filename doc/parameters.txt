@@ -2,10 +2,10 @@
 
 ** Usage
 
-	simNGS [-b shape:scale][-c correlation] [-d] 
-               [-f nimpure:ncycle:threshold] [-i filename ]
-	       [-l lane] [-n ncycles] [-p] [-r mu] [-s seed]
-               [-t tile] [-v factor ] runfile
+        simNGS [-b shape:scale] [-c correlation] [-d]
+               [-f nimpure:ncycle:threshold] [-i filename] [-l lane]
+               [-n ncycle] [-o output_format] [-p] [-r mu] [-s seed]
+               [-t tile] [-v factor ]  runfile
 	simNGS --help
         simNGS --licence
 
@@ -58,6 +58,13 @@ than zero but need not be a number valid for a real machine.
 the runfile. If more cycles are asked for than allowed, a warning is printed and
 the number of cycles outputted is restricted to number specificed in the
 runfile.
+
+
+-o, --output format [default: likelihood]
+	Format in which to output results. Either "likelihood" or "fasta".
+"likelihood" is the format specified in the file README.txt, containing the
+likelihoods of all possible base-calls. "fasta" gives the called sequences in
+FASTA format, paired-end reads being concatenated together.
 
 
 -p, --paired
