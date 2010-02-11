@@ -434,7 +434,6 @@ int main( int argc, char * argv[] ){
             // Convert to Weibull via inversion formula
             lambda1 = qweibull(px,simopt->shape,simopt->scale,false,false);
             lambda2 = qweibull(py,simopt->shape,simopt->scale,false,false);
-fprintf(stderr,"%f %f   %f %f   %f %f\n",x,y,px,py,lambda1,lambda2);
         }
             
         intensities = generate_pure_intensities(simopt->sdfact,lambda1,seq->seq,model->ncycle,model->chol1,intensities);
@@ -455,7 +454,6 @@ fprintf(stderr,"%f %f   %f %f   %f %f\n",x,y,px,py,lambda1,lambda2);
                 if(calls[i] != seq->seq.elt[i]){ error[i]++;}
             }
             if ( model->paired ){
-                lambda2 = rweibull(model->shape,model->scale);
                 ARRAY(NUC) rcseq = reverse_complement(seq->seq);
                 intensities = generate_pure_intensities(simopt->sdfact,lambda2,rcseq,model->ncycle,model->chol2,intensities);
                 loglike = likelihood_cycle_intensities(simopt->sdfact,simopt->mu,lambda2,intensities,model->invchol2,loglike);
