@@ -31,7 +31,7 @@ real_t dstdnorm( const real_t x, const bool logd);
 real_t pstdnorm( const real_t q, const bool tail, const bool logd);
 
 real_t rnormal( const real_t mean, const real_t sd );
-real_t dnorm( const real_t x, const real_t m, const real_t sd, const bool logd);
+real_t dnorm(  real_t x,  real_t m,  real_t sd,  bool logd);
 real_t pnorm( const real_t q, const real_t m, const real_t sd, const bool tail, const bool logd);
 
 MAT rmultinorm( const MAT mean, const MAT At, const uint32_t n, MAT z);

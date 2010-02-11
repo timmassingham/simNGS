@@ -25,9 +25,9 @@
 #include <stdbool.h>
 #include "utility.h"
 
-real_t pweibull( const real_t x, const real_t shape, const real_t scale, const bool tail, const bool logp);
-real_t qweibull( const real_t p, const real_t shape, const real_t scale, const bool tail, const bool logp);
-real_t dweibull( const real_t x, const real_t shape, const real_t scale, const bool logd );
-real_t rweibull( const real_t shape, const real_t scale );
+real_t pweibull(  real_t x,  real_t shape,  real_t scale,  bool tail,  bool logp);
+real_t qweibull(  real_t p,  real_t shape,  real_t scale,  bool tail,  bool logp);
+real_t dweibull(  real_t x,  real_t shape,  real_t scale,  bool logd );
+real_t rweibull(  real_t shape,  real_t scale );
 
 #endif

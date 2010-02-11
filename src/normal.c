@@ -66,7 +66,7 @@ real_t rnormal( const real_t mean, const real_t sd ){
 	return mean + sd * rstdnorm();
 }
 
-real_t dnorm( const real_t x, const real_t m, const real_t sd, const bool logd){
+real_t dnorm(  real_t x,  real_t m, real_t sd,  bool logd){
     real_t r = dstdnorm((x-m)/sd,logd);
     return (false==logd)? r/sd : r - log(sd);
 }

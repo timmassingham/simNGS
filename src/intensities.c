@@ -152,7 +152,7 @@ cleanup:
     return NULL;
 }
 
-void show_MODEL( FILE * fp, const MODEL model){
+void show_MODEL( FILE * fp, MODEL model){
     validate(NULL!=fp,);
     validate(NULL!=model,);
     if(NULL!=model->label){fputs(model->label,fp);}
@@ -160,7 +160,7 @@ void show_MODEL( FILE * fp, const MODEL model){
     fprintf(fp,"Lane %u, tile %u\n",model->lane,model->tile);
     fprintf(fp,"Brightness distribution:\n\tshape=%f\tscale=%f\n",model->shape,model->scale);
     const real_t bmean = model->scale * tgamma(1./model->shape) / model->shape;
-    const real_t bvar = model->scale*model->scale * 2.0 * tgamma(2./model->shape) / model->shape - bmean*bmean;
+    real_t bvar = model->scale*model->scale * 2.0 * tgamma(2./model->shape) / model->shape - bmean*bmean;
     fprintf(fp,"\tmean=%f\tsd=%f\n",bmean,sqrt(bvar));
     fputs("Covariance matrix of errors:\n",fp);
     show_MAT(fp,model->cov1,5,5);
@@ -281,7 +281,7 @@ real_t lss ( const MAT x, const MAT invVchol ){
 }
     
     
-MAT likelihood_cycle_intensities ( const real_t sdfact, const real_t mu, const real_t lambda, const MAT ints, const MAT * invchol, MAT like){
+MAT likelihood_cycle_intensities ( const real_t sdfact, real_t mu, const real_t lambda, const MAT ints, const MAT * invchol, MAT like){
     validate(NULL!=ints,NULL);
     validate(NULL!=invchol,NULL);
     const uint32_t ncycle = ints->ncol;
@@ -373,7 +373,7 @@ NUC * call_by_maximum_likelihood(const MAT likelihood, NUC * calls){
     return calls;
 }
 
-real_t purity ( const real_t * ints4 ){
+real_t purity ( real_t * ints4 ){
     real_t max1=fabs(ints4[0]);
     real_t max2=fabs(ints4[1]);
     if(max1<max2){ SWAP(max1,max2); }

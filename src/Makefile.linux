@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -O3 -funroll-loops -DNDEBUG -fomit-frame-pointer -std=c99
+CFLAGS = -Wall -O3 -funroll-loops -DNDEBUG -fomit-frame-pointer -std=gnu99
 #CFLAGS = -std=c99 -Wall -g -std=gnu99
 #CFLAGS = -g -pg -std=c99
 CFLAGSSFMT = -msse2 -DHAVE_SSE2 -O9 -finline-functions -fomit-frame-pointer \
@@ -26,4 +26,4 @@ sfmt.o:
 	gcc -o sfmt.o $(CFLAGSSFMT) -DMEXP=19937 -ISFMT-src-1.3/ -c SFMT-src-1.3/SFMT.c
 
 archive: clean
-	cd  ../.. && tar zcf simNGS.tgz --exclude=.git --exclude=bin --exclude=archive --exclude=test --exclude=runfiles simNGS
+	cd ../.. && tar zcf simNGS.tgz --exclude=.git --exclude=archive --exclude=test --exclude=runfiles simNGS

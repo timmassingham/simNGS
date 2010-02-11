@@ -29,7 +29,7 @@
 /* Four possible cases depending on tail or log, deal with
  * all of them accurately
  */
-real_t pweibull ( const real_t x, const real_t shape, const real_t scale, const bool tail, const bool logp){
+real_t pweibull (  real_t x,  real_t shape,  real_t scale,  bool tail,  bool logp){
     validate(x>0,NAN);
     validate(shape>0,NAN);
     validate(scale>0,NAN);
@@ -46,7 +46,7 @@ real_t pweibull ( const real_t x, const real_t shape, const real_t scale, const 
 }
 
 /* Inverse CDF of Weibull, dealing with log and tails correctly */
-real_t qweibull ( const real_t p, const real_t shape, const real_t scale, const bool tail, const bool logp){
+real_t qweibull ( real_t p,  real_t shape,  real_t scale,  bool tail,  bool logp){
     validate(shape>0,NAN);
     validate(shape>0,NAN);
     validate(p>=0 && p<=1,NAN);
@@ -64,13 +64,13 @@ real_t qweibull ( const real_t p, const real_t shape, const real_t scale, const 
 }
 
 /* Weibull density */
-real_t dweibull ( const real_t x, const real_t shape, const real_t scale, const bool logd ){
+real_t dweibull (  real_t x, real_t shape,  real_t scale,  bool logd ){
     validate(x>=0.0,NAN);
     validate(shape>0,NAN);
     validate(shape>0,NAN);
 
     if ( NAN==x){ return NAN;}
-    const real_t scaledx = x/scale;
+    real_t scaledx = x/scale;
     if(true==logd){ return log(shape/scale) + (shape-1) * log(scaledx) - pow(scaledx,shape);}
     
     real_t res = pow(scaledx,shape-1.);
@@ -79,7 +79,7 @@ real_t dweibull ( const real_t x, const real_t shape, const real_t scale, const 
 
 /* Random Weibull */
 /* Sample by inverse CDF since this is analytic */
-real_t rweibull( const real_t shape, const real_t scale ){
+real_t rweibull(  real_t shape,  real_t scale ){
     validate(shape>0,NAN);
     validate(shape>0,NAN);
     /* Uses property that U uniform implies 1-U uniform
