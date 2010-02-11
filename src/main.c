@@ -301,25 +301,23 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
     return simopt;
 }
 
-inline real_t phred(const real_t p) __attribute__((const));
-inline real_t prop_upper( const real_t p, const uint32_t n) __attribute__((const
-));
-inline real_t prop_lower( const real_t p, const uint32_t n) __attribute__((const
-));
+static inline real_t phred(const real_t p) __attribute__((const));
+static inline real_t prop_upper( const real_t p, const uint32_t n) __attribute__((const));
+static inline real_t prop_lower( const real_t p, const uint32_t n) __attribute__((const));
 
-inline real_t phred(const real_t p){
+static inline real_t phred(const real_t p){
     return -10.0 * log10(p);
 }
 
 // Proportion confidence interval using Wilson's method
-inline real_t prop_upper( const real_t p, const uint32_t n){
+static inline real_t prop_upper( const real_t p, const uint32_t n){
     const real_t z = 1.959964;
     real_t desc = p*(1-p)/n + (z*z/(4.0*n*n));
     desc = p + z*z/(2.*n) + z * sqrt(desc);
     return desc / (1.0 + z*z/n);
 }
 
-inline real_t prop_lower( const real_t p, const uint32_t n){
+static inline real_t prop_lower( const real_t p, const uint32_t n){
     const real_t z = 1.959964;
     real_t desc = p*(1-p)/n + (z*z/(4.0*n*n));
     desc = p + z*z/(2.*n) - z * sqrt(desc);
