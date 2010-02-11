@@ -43,8 +43,8 @@ void fprint_usage( FILE * fp){
 "\n"
 "Usage:\n"
 "\tsimNGS [-b shape:scale] [-c correlation] [-d]\n"
-"\t       [-f nimpure:ncycle:threshold] [-i filename]\n"
-"\t       [-l lane] [-n ncycle] [-p] [-r mu] [-s seed]\n"
+"\t       [-f nimpure:ncycle:threshold] [-i filename] [-l lane]\n"
+"\t       [-n ncycle] [-o output_format] [-p] [-r mu] [-s seed]\n"
 "\t       [-t tile] [-v factor ]  runfile\n"
 "\tsimNGS --help\n"
 "\tsimNGS --licence\n"
@@ -95,6 +95,9 @@ void fprint_help( FILE * fp){
 "-n, --ncycles ncycles [default: as runfile]\n"
 "\tNumber of cycles to do, up to maximum allowed for runfile.\n"
 "\n"
+"-o, --output format [default: likelihood]\n"
+"\tFormat in which to output results. Either \"likelihood\" or \"fasta\"\n"
+"\n"
 "-p, --paired\n"
 "\tTreat run as paired-end. For single-ended runs treated as\n"
 "paired, the covariance matrix is duplicated to make two uncorrelated pairs.\n"
@@ -123,6 +126,7 @@ static struct option longopts[] = {
     { "intensities", required_argument, NULL, 'i'},
     { "lane",       required_argument, NULL, 'l' },
     { "ncycle",     required_argument, NULL, 'n' },
+    { "output",     required_argument, NULL, 'o' },
     { "paired",     no_argument,       NULL, 'p' },
     { "robust",     required_argument, NULL, 'r' },
     { "seed",       required_argument, NULL, 's' },
@@ -161,6 +165,9 @@ unsigned int parse_uint( const CSTRING str){
     return n;
 }
 
+enum outformat { OUTPUT_LIKE=0, OUTPUT_FASTA };
+const char * output_format_str[] = { "likelihood", "fasta" };
+
 typedef struct {
     unsigned int ncycle;
     real_t shape,scale,corr;
@@ -171,6 +178,7 @@ typedef struct {
     real_t purity_threshold;
     uint32_t purity_cycles,purity_max;
     CSTRING intensity_fn;
+    enum outformat format;
 } * SIMOPT;
 
 SIMOPT new_SIMOPT(void){
@@ -192,6 +200,7 @@ SIMOPT new_SIMOPT(void){
     opt->purity_cycles = 0;
     opt->purity_max = 0;
     opt->intensity_fn = NULL;
+    opt->format = OUTPUT_LIKE;
     
     return opt;
 }
@@ -230,6 +239,7 @@ void show_SIMOPT (FILE * fp, const SIMOPT simopt){
     } else {
        fputs("No purity filtering.\n",stdout);
     }
+    fprintf(fp,"Writing %s to output.\n",output_format_str[simopt->format]);
     if(NULL!=simopt->intensity_fn){
         fprintf(fp,"Will write intensities to \"%s\"\n",simopt->intensity_fn);
     }
@@ -240,7 +250,7 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
     SIMOPT simopt = new_SIMOPT();
     validate(NULL!=simopt,NULL);
     
-    while ((ch = getopt_long(argc, argv, "b:c:df:i:l:pr:s:t:uv:h", longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "b:c:df:i:l:n:o:pr:s:t:uv:h", longopts, NULL)) != -1){
         int ret;
         unsigned long int i=0,j=0;
         switch(ch){
@@ -270,7 +280,12 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
         case 'n':   sscanf(optarg,"%u",&simopt->ncycle);
                     if(simopt->ncycle==0){errx(EXIT_FAILURE,"Number of cycles to simulate must be greater than zero.");}
                     break;
-
+        case 'o':   if( strcasecmp(optarg,output_format_str[OUTPUT_LIKE])==0 ){ simopt->format = OUTPUT_LIKE; }
+                    else if ( strcasecmp(optarg,output_format_str[OUTPUT_FASTA])==0 ){ simopt->format = OUTPUT_FASTA; }
+                    else {
+                        errx(EXIT_FAILURE,"Unrecognised output option %s.",optarg);
+                    }
+                    break;
         case 'p':   simopt->paired = true;
                     break;
         case 'r':   simopt->mu = parse_real(optarg);
@@ -301,25 +316,23 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
     return simopt;
 }
 
-inline real_t phred(const real_t p) __attribute__((const));
-inline real_t prop_upper( const real_t p, const uint32_t n) __attribute__((const
-));
-inline real_t prop_lower( const real_t p, const uint32_t n) __attribute__((const
-));
+static inline real_t phred(const real_t p) __attribute__((const));
+static inline real_t prop_upper( const real_t p, const uint32_t n) __attribute__((const));
+static inline real_t prop_lower( const real_t p, const uint32_t n) __attribute__((const));
 
-inline real_t phred(const real_t p){
+static inline real_t phred(const real_t p){
     return -10.0 * log10(p);
 }
 
 // Proportion confidence interval using Wilson's method
-inline real_t prop_upper( const real_t p, const uint32_t n){
+static inline real_t prop_upper( const real_t p, const uint32_t n){
     const real_t z = 1.959964;
     real_t desc = p*(1-p)/n + (z*z/(4.0*n*n));
     desc = p + z*z/(2.*n) + z * sqrt(desc);
     return desc / (1.0 + z*z/n);
 }
 
-inline real_t prop_lower( const real_t p, const uint32_t n){
+static inline real_t prop_lower( const real_t p, const uint32_t n){
     const real_t z = 1.959964;
     real_t desc = p*(1-p)/n + (z*z/(4.0*n*n));
     desc = p + z*z/(2.*n) - z * sqrt(desc);
@@ -340,6 +353,9 @@ int main( int argc, char * argv[] ){
 
     // Load up model
     MODEL model = new_MODEL_from_file(argv[0]);
+    if (NULL==model){
+        errx(EXIT_FAILURE,"Failed to read runfile \"%s\"",argv[0]);
+    }
     if( simopt->desc ){
         show_MODEL(stderr,model);
         return EXIT_SUCCESS;
@@ -400,9 +416,9 @@ int main( int argc, char * argv[] ){
 
     // Scan through fasta file
     MAT intensities = NULL, loglike = NULL;
-    NUC * calls = NULL;
+    ARRAY(NUC) calls = null_ARRAY(NUC);
     SEQ seq = NULL;
-    FILE * fp = stdin;// fopen("test/test100_small.fa","r")
+    FILE * fp =  stdin; //fopen("test/test100_small.fa","r");
     uint32_t seq_count=0, unfiltered_count=0;
     // Memory for error counting
     uint32_t * error = calloc(model->ncycle,sizeof(uint32_t));
@@ -433,7 +449,6 @@ int main( int argc, char * argv[] ){
             // Convert to Weibull via inversion formula
             lambda1 = qweibull(px,simopt->shape,simopt->scale,false,false);
             lambda2 = qweibull(py,simopt->shape,simopt->scale,false,false);
-fprintf(stderr,"%f %f   %f %f   %f %f\n",x,y,px,py,lambda1,lambda2);
         }
             
         intensities = generate_pure_intensities(simopt->sdfact,lambda1,seq->seq,model->ncycle,model->chol1,intensities);
@@ -446,27 +461,56 @@ fprintf(stderr,"%f %f   %f %f   %f %f\n",x,y,px,py,lambda1,lambda2);
             fprint_intensities(fpout,"",intensities,false);
         }
 
-        fprintf(stdout,"%u\t%u\t%u\t%u",model->lane,model->tile,x,y);
+        switch(simopt->format){
+           case OUTPUT_LIKE:
+               fprintf(stdout,"%u\t%u\t%u\t%u",model->lane,model->tile,x,y);
+               break;
+           case OUTPUT_FASTA:
+               fprintf(stdout,">%s\n",seq->name);
+               break;
+        }
+
         if ( number_inpure_cycles(intensities,simopt->purity_threshold,simopt->purity_cycles) <= simopt->purity_max){
-            fprint_intensities(stdout,"",loglike,false);
             calls = call_by_maximum_likelihood(loglike,calls);
             for ( uint32_t i=0 ; i<model->ncycle ; i++){
-                if(calls[i] != seq->seq.elt[i]){ error[i]++;}
+                if(calls.elt[i] != seq->seq.elt[i]){ error[i]++;}
+            }
+            switch(simopt->format){
+                case OUTPUT_LIKE:
+                    fprint_intensities(stdout,"",loglike,false);
+                    break;
+                case OUTPUT_FASTA:
+                    show_ARRAY(NUC)(stdout,calls,"",0);
+                    break;
             }
             if ( model->paired ){
-                lambda2 = rweibull(model->shape,model->scale);
                 ARRAY(NUC) rcseq = reverse_complement(seq->seq);
                 intensities = generate_pure_intensities(simopt->sdfact,lambda2,rcseq,model->ncycle,model->chol2,intensities);
                 loglike = likelihood_cycle_intensities(simopt->sdfact,simopt->mu,lambda2,intensities,model->invchol2,loglike);
                 if(NULL!=fpout){ fprint_intensities(fpout,"",intensities,false); }
-                fprint_intensities(stdout,"",loglike,false);
                 calls = call_by_maximum_likelihood(loglike,calls);
                 for ( uint32_t i=0 ; i<model->ncycle ; i++){
-                    if(calls[i] != rcseq.elt[i]){ error2[i]++;}
+                    if(calls.elt[i] != rcseq.elt[i]){ error2[i]++;}
+                }
+                switch(simopt->format){
+                    case OUTPUT_LIKE:
+                        fprint_intensities(stdout,"",loglike,false);
+                        break;
+                    case OUTPUT_FASTA:
+                        show_ARRAY(NUC)(stdout,calls,"",0);
+                        break;
                 }
                 free_ARRAY(NUC)(rcseq);
             }
             unfiltered_count++;
+        } else {
+            // Represent filtered fasta's as N's
+            if ( OUTPUT_FASTA==simopt->format ){
+                const uint32_t lim = (model->paired)?(2*model->ncycle):model->ncycle;
+                for ( uint32_t cy=0 ; cy<lim ; cy++){
+                    show_NUC(stdout,NUC_AMBIG);
+                }
+            }
         }
         fputc('\n',stdout);
         if(NULL!=fpout){ fputc('\n',fpout); }
@@ -477,7 +521,7 @@ fprintf(stderr,"%f %f   %f %f   %f %f\n",x,y,px,py,lambda1,lambda2);
     fprintf(stderr,"\rFinished generating %8u sequences\n",seq_count);
     if(simopt->purity_cycles>0){ fprintf(stderr,"%8u sequences passed filter.\n",unfiltered_count);}
     if(NULL!=fpout){fclose(fpout);}
-    safe_free(calls);
+    free_ARRAY(NUC)(calls);
     free_MAT(loglike);
     free_MAT(intensities);
 

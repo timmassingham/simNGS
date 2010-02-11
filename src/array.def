@@ -56,7 +56,6 @@ static void X(show_array_) ( FILE * fp, const struct X(_array_) array, const cha
 		X(show_)(fp,array.elt[i]);
 	}
 	if( ub!=array.nelt ){ fprintf(fp," ... %u more",array.nelt-ub);}
-	fputc('\n',fp);
 }
 
 static struct X(_array_) X(read_array_)( FILE * fp, const uint32_t nelt){
