@@ -4,8 +4,8 @@
 
 	simNGS [-b shape:scale][-c correlation] [-d] 
                [-f nimpure:ncycle:threshold] [-i filename ]
-	       [-l lane] [-n ncycles] [-r mu] [-s seed] [-t tile] 
-               [-v factor ] runfile
+	       [-l lane] [-n ncycles] [-p] [-r mu] [-s seed]
+               [-t tile] [-v factor ] runfile
 	simNGS --help
         simNGS --licence
 
