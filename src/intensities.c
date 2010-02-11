@@ -348,23 +348,23 @@ void fprint_intensities(FILE * fp, const char * prefix, const MAT ints, const bo
     if(last){fputc('\n',fp);}
 }
 
-NUC * call_by_maximum_likelihood(const MAT likelihood, NUC * calls){
-    validate(NULL!=likelihood,NULL);
-    validate(NBASE==likelihood->nrow,NULL);
+ARRAY(NUC) call_by_maximum_likelihood(const MAT likelihood, ARRAY(NUC) calls){
+    validate(NULL!=likelihood,null_ARRAY(NUC));
+    validate(NBASE==likelihood->nrow,null_ARRAY(NUC));
     const uint32_t ncycle = likelihood->ncol;
-    if ( NULL==calls){
-       calls = calloc(ncycle,sizeof(NUC));
-       validate(NULL!=calls,NULL);
+    if ( NULL==calls.elt){
+       calls = new_ARRAY(NUC)(ncycle);
+       validate(NULL!=calls.elt,null_ARRAY(NUC));
     }
 
     // likelihoods are stored as -log-likelihood so
     // max likelihood <==> min -log-likelihood
     for ( uint32_t cycle=0 ; cycle<ncycle ; cycle++){
-        calls[cycle] = NUC_A;
+        calls.elt[cycle] = NUC_A;
         real_t lmin = likelihood->x[cycle*NBASE];
         for ( uint32_t base=1 ; base<NBASE ; base++){
             if(likelihood->x[cycle*NBASE+base]<lmin){
-                calls[cycle] = base;
+                calls.elt[cycle] = base;
                 lmin = likelihood->x[cycle*NBASE+base];
             }
         }
