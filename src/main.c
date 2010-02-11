@@ -338,6 +338,9 @@ int main( int argc, char * argv[] ){
 
     // Load up model
     MODEL model = new_MODEL_from_file(argv[0]);
+    if (NULL==model){
+        errx(EXIT_FAILURE,"Failed to read runfile \"%s\"",argv[0]);
+    }
     if( simopt->desc ){
         show_MODEL(stderr,model);
         return EXIT_SUCCESS;
