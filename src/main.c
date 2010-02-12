@@ -459,11 +459,7 @@ int main( int argc, char * argv[] ){
             free_SEQ(seq);
             seq = mut;
         }
-        if ( seq->length < model->ncycle ){
-            fprintf(stderr,"Sequence %s shorter than number of cycles, skipping\n",seq->name);
-            free_SEQ(seq);
-            continue;
-        }
+
         // Pick lambda using Gaussian Copula
         real_t lambda1=NAN,lambda2=NAN;
         {

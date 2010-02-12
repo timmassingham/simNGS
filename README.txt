@@ -37,6 +37,14 @@ More detailed descriptions are available in doc/parameters.txt
 
 	cat sequences.fa | simNGS runfile > sequences.like
 
+	Ambiguous characters are interpretated as "no base present" and 
+treated as a null call: the intensities generated are just noise and do not
+have an additional component from the sequence, leading to a less bright 
+cluster. Artifact such as bubbles and registration errors could be simulated
+by placing ambiguity characters in the sequence. Where the sequence to be
+called is shorter than the expected read length, either because the input
+was too short or deletion from the mutation model have shortened it, the
+sequence is padded with ambiguity characters for the remaining cycles.
 
 ** Example
 	Produces likelihoods for sequences in test100.fa and outputs to 

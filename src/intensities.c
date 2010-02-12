@@ -249,7 +249,7 @@ MAT generate_pure_intensities ( const real_t sdfact, const real_t lambda, const 
     if(1.0!=sdfact){scale_MAT(ints,sdfact);}
     for ( uint32_t i=0 ; i<ncycle ; i++){
         // Assume that ambiguity in the sequence is a no call
-        if ( NUC_AMBIG != seq.elt[i]){
+        if ( i<seq.nelt && NUC_AMBIG != seq.elt[i]){
             ints->x[NBASE*i+seq.elt[i]] += lambda;
         }
     }
