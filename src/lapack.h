@@ -28,27 +28,34 @@
 #define F77_NAME(A) A
 #endif
 
-const char LAPACK_UPPER[] = {'U'};
-const char LAPACK_LOWER[] = {'L'};
-const char LAPACK_UNITTRI[] = {'U'};
-const char LAPACK_NONUNITTRI[] = {'N'};
+static const char LAPACK_UPPER[] = {'U'};
+static const char LAPACK_LOWER[] = {'L'};
+static const char LAPACK_UNITTRI[] = {'U'};
+static const char LAPACK_NONUNITTRI[] = {'N'};
+static const char LAPACK_TRANS[] = {'T'};
+static const char LAPACK_NOTRANS[] = {'T'};
+static const int LAPACK_UNIT[] = {1};
 
 // Float functions
 void F77_NAME(spotrf)( const char * uplo, const int * n, float * A, const int * lda, int * info );
 void F77_NAME(strtri)( const char * uplo, const char * diag, const int * n, float * a, const int * lda, int * info);
+void F77_NAME(strmv)( const char * uplo, const char * trans, const char * diag, const int * n, const float * A, const int * lda, float * x, const int * incx);
 
 // Double functions
 void F77_NAME(dpotrf)( const char * uplo, const int * n, double * A, const int * lda, int * info );
 void F77_NAME(dtrtri)( const char * uplo, const char * diag, const int * n, double * a, const int * lda, int * info);
+void F77_NAME(dtrmv)( const char * uplo, const char * trans, const char * diag, const int * n, const double * A, const int * lda, double * x, const int * incx);
 
 
 // Generic definitions
 #ifdef USEFLOAT
     #define potrf   F77_NAME(spotrf)
     #define trtri   F77_NAME(strtri)
+    #define trmv    F77_NAME(strmv)
 #else
     #define potrf   F77_NAME(dpotrf)
     #define trtri   F77_NAME(dtrtri)
+    #define trmv    F77_NAME(dtrmv)
 #endif
 
 #endif

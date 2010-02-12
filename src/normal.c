@@ -24,7 +24,7 @@
 #include "utility.h"
 #include "random.h"
 #include "matrix.h"
-
+#include "lapack.h"
 
 // Standard normal using Box-Muller method
 real_t rstdnorm( void ){
@@ -97,15 +97,20 @@ MAT rmultinorm ( const MAT mean, const MAT L, const uint32_t n, MAT z){
         z->x[i] = rstdnorm();
     }
     
-    if(NULL!=L){       
-        // Form L*z via z^t L^t
-        // Start at rightmost column and work back so can modify z inplace
-        for ( int i=(n-1) ; i>=0 ; i--){
-            z->x[i] *= L->x[i*n+i];
-            for ( uint32_t j=0 ; j<i ; j++){
-                z->x[i] += z->x[j] * L->x[i*n+j];
+    if(NULL!=L){
+        #ifndef USE_BLAS
+            // Form L*z via z^t L^t
+            // Start at rightmost column and work back so can modify z inplace
+            for ( int i=(n-1) ; i>=0 ; i--){
+                z->x[i] *= L->x[i*n+i];
+                for ( uint32_t j=0 ; j<i ; j++){
+                    z->x[i] += z->x[j] * L->x[i*n+j];
+                }
             }
-        }
+       #else
+           int N = n;
+           trmv(LAPACK_LOWER,LAPACK_NOTRANS,LAPACK_NONUNITTRI,&N,L->x,&N,z->x,LAPACK_UNIT);
+       #endif
     }
     
     if(NULL!=mean){
