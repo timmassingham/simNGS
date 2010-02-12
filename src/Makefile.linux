@@ -8,7 +8,7 @@ LD = ld
 LDFLAGS =  -lm -lc -lblas -llapack
 INCFLAGS = 
 DEFINES = -DUSEFLOAT -D_GNU_SOURCE
-objects =  sfmt.o matrix.o nuc.o intensities.o normal.o weibull.o sequence.o mystring.o main.o utility.o
+objects =  sfmt.o matrix.o nuc.o intensities.o normal.o weibull.o sequence.o mystring.o main.o utility.o random.o
 
 simNGS: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(LDFLAGS) $(objects)

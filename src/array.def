@@ -9,6 +9,7 @@
     #define ARRAY(A)		struct _array_ ## A
     #define null_ARRAY(A)	(ARRAY(A)){NULL,0};
     #define new_ARRAY(A)	new_array_ ## A
+    #define resize_ARRAY(A) resize_array_ ## A
     #define free_ARRAY(A)	free_array_ ## A
     #define copy_ARRAY(A)	copy_array_ ## A
     #define show_ARRAY(A)	show_array_ ## A
@@ -29,6 +30,12 @@ static struct X(_array_) X(new_array_) ( uint32_t nelt){
 	arry.elt = calloc(nelt,sizeof(*arry.elt));
 	if(NULL!=arry.elt){ arry.nelt = nelt;}
 	return arry;
+}
+
+static struct X(_array_) X(resize_array_)( struct X(_array_) arry, const uint32_t newlen ){
+    arry.elt = reallocf(arry.elt,newlen*sizeof(*arry.elt));
+    arry.nelt = (NULL!=arry.elt)?newlen:0;
+    return arry;
 }
 
 static void X(free_array_) ( struct X(_array_) arry ){

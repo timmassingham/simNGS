@@ -26,6 +26,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include "nuc.h"
+#include "utility.h"
 
 
 struct _sequence {
@@ -50,5 +51,6 @@ SEQ sequence_from_fastq ( FILE * fp);
 
 //
 SEQ reverse_complement_SEQ( const SEQ seq);
+SEQ mutate_SEQ( const SEQ seq, const real_t ins, const real_t del, const real_t mut );
 #endif
 

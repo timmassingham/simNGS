@@ -19,47 +19,14 @@
  *  along with simNGS.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _NUC_H
-#define _NUC_H
-
-#include <stdio.h>
 #include <stdint.h>
+#include "utility.h"
+#include "random.h"
 
-typedef char NUC;
-#define NBASE       4
-
-#define NUC_AMBIG   4
-#define NUC_A       0
-#define NUC_C       1
-#define NUC_G       2
-#define NUC_T       3
-
-typedef char PHREDCHAR;
-
-void show_NUC(FILE * fp, const NUC nuc);
-void show_PHREDCHAR(FILE * fp, const PHREDCHAR nuc);
-
-NUC read_NUC(FILE * fp);
-PHREDCHAR read_PHREDCHAR(FILE * fp);
-#define MIN_PHRED   33
-#define MAX_PHRED   126
-
-#define X(A) A ## NUC
-#include "array.def"
-#undef X
-#define X(A) A ## PHREDCHAR
-#include "array.def"
-#undef X
-
-
-    
-NUC nuc_from_char( const char c);
-char char_from_nuc(const NUC nuc);
-NUC complement(const NUC nuc);
-ARRAY(NUC) reverse_complement(const ARRAY(NUC) nucs);
-PHREDCHAR phredchar_from_char( const char c);
-NUC random_NUC(void);
-NUC random_other_NUC(const NUC nuc);
-
-#endif
+uint32_t rchoose( const real_t * p, const uint32_t n){
+    real_t x = runif();
+    uint32_t i=0;
+    while( i<n && x>p[i]){ x-=p[i]; i++; }
+    return i;
+}
 

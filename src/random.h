@@ -30,5 +30,7 @@ inline static real_t runif(void){
 	return (((double)gen_rand64()) + 0.5) * (1.0/18446744073709551616.0L);
 }
 
+uint32_t rchoose( const real_t * p, const uint32_t n);
+
 #endif
 

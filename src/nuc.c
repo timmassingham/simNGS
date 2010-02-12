@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include "utility.h"
 #include "nuc.h"
+#include "random.h"
 
 void show_NUC(FILE * fp, const NUC nuc){
     validate(NULL!=fp,);
@@ -91,8 +92,18 @@ ARRAY(NUC) reverse_complement(const ARRAY(NUC) nucs){
 }
 
 PHREDCHAR phredchar_from_char( const char c){
-    validate(c>32,33);
-    validate(c<127,126);
+    validate(c>=MIN_PHRED,MIN_PHRED);
+    validate(c<=MAX_PHRED,MAX_PHRED);
+    return c;
+}
+
+NUC random_NUC(void){
+    return (NUC)(4.0*runif());
+}
+    
+NUC random_other_NUC(const NUC nuc){
+    NUC c = (NUC)(3.0*runif());
+    if(c>=nuc){ c++;}
     return c;
 }
 

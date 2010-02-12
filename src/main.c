@@ -44,8 +44,8 @@ void fprint_usage( FILE * fp){
 "Usage:\n"
 "\tsimNGS [-b shape:scale] [-c correlation] [-d]\n"
 "\t       [-f nimpure:ncycle:threshold] [-i filename] [-l lane]\n"
-"\t       [-n ncycle] [-o output_format] [-p] [-r mu] [-s seed]\n"
-"\t       [-t tile] [-v factor ]  runfile\n"
+"\t       [-m insertion:deletion:mutation] [-n ncycle] [-o output_format]\n"
+"\t       [-p] [-r mu] [-s seed] [-t tile] [-v factor ]  runfile\n"
 "\tsimNGS --help\n"
 "\tsimNGS --licence\n"
 "simNGS reads from stdin and writes to stdout. Messages and progess\n"
@@ -92,6 +92,11 @@ void fprint_help( FILE * fp){
 "-l, --lane lane [default: as runfile]\n"
 "\tSet lane number\n"
 "\n"
+"-m, --mutate insertion:deletion:mutation [default: no mutation]\n"
+"\tSimple model of sequence mutation to reflect sample preparation errors.\n"
+"Each sequence read in is transformed by a simple automata which inserts,"
+"deletes or mutates bases with the specified probabilities.\n"
+"\n"
 "-n, --ncycles ncycles [default: as runfile]\n"
 "\tNumber of cycles to do, up to maximum allowed for runfile.\n"
 "\n"
@@ -125,6 +130,7 @@ static struct option longopts[] = {
     { "filter",     required_argument, NULL, 'f' },
     { "intensities", required_argument, NULL, 'i'},
     { "lane",       required_argument, NULL, 'l' },
+    { "mutate",     required_argument, NULL, 'm' },
     { "ncycle",     required_argument, NULL, 'n' },
     { "output",     required_argument, NULL, 'o' },
     { "paired",     no_argument,       NULL, 'p' },
@@ -179,6 +185,8 @@ typedef struct {
     uint32_t purity_cycles,purity_max;
     CSTRING intensity_fn;
     enum outformat format;
+    bool mutate;
+    real_t ins,del,mut;
 } * SIMOPT;
 
 SIMOPT new_SIMOPT(void){
@@ -201,6 +209,8 @@ SIMOPT new_SIMOPT(void){
     opt->purity_max = 0;
     opt->intensity_fn = NULL;
     opt->format = OUTPUT_LIKE;
+    opt->mutate = false;
+    opt->ins=0.; opt->del=0.; opt->mut=0.;
     
     return opt;
 }
@@ -239,6 +249,9 @@ void show_SIMOPT (FILE * fp, const SIMOPT simopt){
     } else {
        fputs("No purity filtering.\n",stdout);
     }
+    if(simopt->ins!=0. && simopt->del!=0. && simopt->mut!=0.){
+        fprintf(fp,"Input sequence will be mutated with ins %f, del %f, mut %f\n",simopt->ins,simopt->del,simopt->mut);
+    }
     fprintf(fp,"Writing %s to output.\n",output_format_str[simopt->format]);
     if(NULL!=simopt->intensity_fn){
         fprintf(fp,"Will write intensities to \"%s\"\n",simopt->intensity_fn);
@@ -250,7 +263,7 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
     SIMOPT simopt = new_SIMOPT();
     validate(NULL!=simopt,NULL);
     
-    while ((ch = getopt_long(argc, argv, "b:c:df:i:l:n:o:pr:s:t:uv:h", longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "b:c:df:i:l:m:n:o:pr:s:t:uv:h", longopts, NULL)) != -1){
         int ret;
         unsigned long int i=0,j=0;
         switch(ch){
@@ -277,6 +290,16 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
         case 'l':   simopt->lane = parse_uint(optarg);
                     if(simopt->lane==0){errx(EXIT_FAILURE,"Lane number must be greater than zero.");}
                     break;
+        case 'm':   ret = sscanf(optarg, real_format_str ":" real_format_str ":" real_format_str,&simopt->ins,&simopt->del,&simopt->mut);
+                    if( ret!=3 ){ errx(EXIT_FAILURE,"Insufficient arguments for mutation.");}
+                    if(!isprob(simopt->ins) || !isprob(simopt->del) || !isprob(simopt->mut) ){
+                        errx(EXIT_FAILURE,"Mutation parameters not probabilities. Given: ins %f, del %f, mut %f",simopt->ins,simopt->del,simopt->mut);
+                    }
+                    if(simopt->ins+simopt->del+simopt->mut>1.0){
+                        errx(EXIT_FAILURE,"Mutation parameters sum to greater than one.");
+                    }
+                    simopt->mutate = true;
+                    break;   
         case 'n':   sscanf(optarg,"%u",&simopt->ncycle);
                     if(simopt->ncycle==0){errx(EXIT_FAILURE,"Number of cycles to simulate must be greater than zero.");}
                     break;
@@ -431,6 +454,11 @@ int main( int argc, char * argv[] ){
 
     while ((seq=sequence_from_fasta(fp))!=NULL){
         //show_SEQ(stderr,seq);
+        if(simopt->mutate){
+            SEQ mut = mutate_SEQ(seq,simopt->ins,simopt->del,simopt->mut);
+            free_SEQ(seq);
+            seq = mut;
+        }
         if ( seq->length < model->ncycle ){
             fprintf(stderr,"Sequence %s shorter than number of cycles, skipping\n",seq->name);
             free_SEQ(seq);
@@ -531,7 +559,7 @@ int main( int argc, char * argv[] ){
     if(simopt->paired){ fputs("   Count  Phred   lower, upper",stderr);}
     for ( uint32_t i=0 ; i<model->ncycle ; i++){
         const real_t e = ((real_t)error[i])/unfiltered_count;
-	fprintf(stderr,"\n%3u: %7u %6.2f (%6.2f,%6.2f)",i+1,error[i], phred(e), phred(prop_upper(e,unfiltered_count)), phred(prop_lower(e,unfiltered_count)));
+	    fprintf(stderr,"\n%3u: %7u %6.2f (%6.2f,%6.2f)",i+1,error[i], phred(e), phred(prop_upper(e,unfiltered_count)), phred(prop_lower(e,unfiltered_count)));
         if(simopt->paired){ 
             const real_t e2 = ((real_t)error2[i])/unfiltered_count;
             fprintf(stderr,"%7u %6.2f (%6.2f,%6.2f)",error2[i], phred(e2), phred(prop_upper(e2,unfiltered_count)), phred(prop_lower(e2,unfiltered_count)));

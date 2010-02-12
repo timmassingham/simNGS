@@ -7,8 +7,8 @@ CFLAGSSFMT = -msse2 -DHAVE_SSE2 -O9 -finline-functions -fomit-frame-pointer \
 LD = ld
 LDFLAGS =  -lm -lc -lblas -llapack
 INCFLAGS = 
-DEFINES = -DUSEFLOAT
-objects =  sfmt.o matrix.o nuc.o intensities.o normal.o weibull.o sequence.o mystring.o main.o utility.o
+DEFINES = -DUSEFLOAT -DHAS_REALLOCF
+objects =  sfmt.o matrix.o nuc.o intensities.o normal.o weibull.o sequence.o mystring.o main.o utility.o random.o
 
 simNGS: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(LDFLAGS) $(objects)

@@ -30,6 +30,7 @@
 #include "utility.h"
 #include "sequence.h"
 #include "mystring.h"
+#include "random.h"
 
 
 void free_SEQ ( SEQ seq ){
@@ -63,6 +64,22 @@ cleanup:
    return NULL;
 }
 
+SEQ resize_SEQ( SEQ seq, const uint32_t newlen){
+    seq->seq = resize_ARRAY(NUC)(seq->seq,newlen);
+    if(0==seq->seq.nelt){ free_SEQ(seq); return NULL;}
+    for ( uint32_t i=seq->length ; i<newlen ; i++){
+        seq->seq.elt[i] = NUC_AMBIG;
+    }
+    if(0!=seq->qual.nelt){
+        seq->qual = resize_ARRAY(PHREDCHAR)(seq->qual,newlen);
+        if(0==seq->qual.nelt){ free_SEQ(seq); return NULL;}
+        for ( uint32_t i=seq->length ; i<newlen ; i++){
+            seq->qual.elt[i] = MIN_PHRED;
+        }
+    }
+    seq->length = newlen;
+    return seq;
+}
 
 SEQ sequence_from_str ( const char * restrict name, const char * restrict seqstr, const char * restrict qname, const char * restrict qualstr ){
    if(NULL==seqstr){ return NULL;}
@@ -260,6 +277,45 @@ cleanup:
     free_ARRAY(NUC)(rcnuc);
     free_SEQ(newseq);
     return NULL;
+}
+
+
+SEQ mutate_SEQ ( const SEQ seq, const real_t ins, const real_t del, const real_t mut ){
+    validate(NULL!=seq,NULL);
+    validate(isprob(ins),NULL);
+    validate(isprob(del),NULL);
+    validate(isprob(mut),NULL);
+    const real_t probs[4] = { ins, del, mut, 1.-ins-del-mut };
+    
+    SEQ mutseq = copy_SEQ(seq);
+    uint32_t scount=0, mcount=0;
+    while(scount<seq->length){
+        if(mcount==mutseq->length){ // Enlarge mutated sequence
+            resize_SEQ(mutseq,mutseq->length*2);
+        }
+        uint32_t i = rchoose(probs,4);
+        switch(i){
+           case 0: // Insertion of base
+               mutseq->seq.elt[mcount] = random_NUC();
+               mcount++;
+               break;
+           case 1: // Deletion
+               scount++;
+               break;
+           case 2: // Mutation
+               mutseq->seq.elt[mcount] = random_other_NUC(seq->seq.elt[scount]);
+               mcount++; scount++;
+               break;
+           case 3: // Match
+               mutseq->seq.elt[mcount] = seq->seq.elt[scount];
+               mcount++; scount++;
+               break;
+           default:
+               errx(EXIT_FAILURE,"Invalid case '%d' generated in %s (%s:%u)",i,__func__,__FILE__,__LINE__);
+        }
+    }
+    mutseq = resize_SEQ(mutseq,mcount);
+    return mutseq;
 }
 
 #ifdef TEST

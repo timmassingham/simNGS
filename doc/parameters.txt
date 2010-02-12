@@ -4,8 +4,8 @@
 
         simNGS [-b shape:scale] [-c correlation] [-d]
                [-f nimpure:ncycle:threshold] [-i filename] [-l lane]
-               [-n ncycle] [-o output_format] [-p] [-r mu] [-s seed]
-               [-t tile] [-v factor ]  runfile
+	       [-m insertion:deletion:mutation] [-n ncycle] [-o output_format]
+	       [-p] [-r mu] [-s seed] [-t tile] [-v factor ]  runfile
 	simNGS --help
         simNGS --licence
 
@@ -51,6 +51,14 @@ intensity.
 -l, --lane lane [default: as runfile]
 	Set lane number in the output to "lane". Lane number must be greater
 than zero but need not be a number valid for a real machine.
+
+
+-m, --mutate insertion:deletion:mutation [default: no mutation]
+	Simple model of sequence mutation to reflect sample preparation errors.
+Each sequence read in is transformed by a simple automata which walks the
+input sequence and deletes or mutates bases with the specified probabilities.
+Inserts are chosen uniformly from ACGT, mutations are chosen uniformly from
+the bases different from that present in the original sequence.
 
 
 -n, --ncycle ncycle [default: as runfile]

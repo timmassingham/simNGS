@@ -38,6 +38,18 @@
     #define real_format_str "%lf"
 #endif
 
+#ifndef HAS_REALLOCF
+static void * reallocf(void * ptr, size_t t){
+        void * ptr2;
+        ptr2 = realloc(ptr,t);
+        if(ptr2==NULL && ptr!=NULL){
+            free(ptr);
+        }
+        return ptr2;
+}
+#endif
+
+
 bool isprob( const real_t p);
 
 #define safe_free(A) { if(NULL!=(A)){free(A);} (A)=NULL; }
