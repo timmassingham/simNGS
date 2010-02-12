@@ -30,6 +30,16 @@
 #include <errno.h>
 
 
+#ifdef USEFLOAT
+    typedef float real_t;
+    #define real_format_str "%f"
+#else
+    typedef double real_t;
+    #define real_format_str "%lf"
+#endif
+
+bool isprob( const real_t p);
+
 #define safe_free(A) { if(NULL!=(A)){free(A);} (A)=NULL; }
 #define SWAP(A,B) { typeof(A) tmp = A; A=B; B=tmp; }
 
@@ -62,13 +72,7 @@ static inline bool bool_from_int( const int n){
 }
 
 
-#ifdef USEFLOAT
-    typedef float real_t;
-    #define real_format_str "%f"
-#else
-    typedef double real_t;
-    #define real_format_str "%lf"
-#endif
+
 
 #define BASIC_INTERFACE(_TYPE)                  \
     _TYPE new_ ## _TYPE   ( void);              \

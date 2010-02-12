@@ -26,6 +26,12 @@
 #include <assert.h>
 #include "utility.h"
 
+bool isprob( const real_t p){
+    if(p>1.0){ return false; }
+    if(p<0.0){ return false; }
+    return true;
+}
+
 /* Basic functions for basic generic type */
 #define _FREE(_TYPE)    void free_ ## _TYPE  ( _TYPE _val){ return; }
 #define _COPY(_TYPE)    _TYPE copy_ ## _TYPE ( const _TYPE _val ){ return _val; }
