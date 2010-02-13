@@ -267,12 +267,13 @@ real_t lss ( const MAT x, const MAT invVchol ){
     validate(invVchol->nrow==invVchol->ncol,NAN);
     validate(x->nrow==invVchol->ncol,NAN);
 
-    // Form x^t invVchol invVchol^t x, noting that invVchol is lower diagonal
+    // Form x^t invVchol invVchol^t x, noting that invVchol is lower triangular 
+    // But lower triangle is stored in both the upper and lower triangle
     const uint32_t n=x->nrow;    
     real_t tot = 0.;
     for ( uint32_t i=0 ; i<n ; i++){
         real_t s = 0.;
-        for ( uint32_t j=0 ; j<=i ; j++){
+        for ( uint32_t j=i ; j<n ; j++){
             s += x->x[j] * invVchol->x[i*n+j];
         }
         tot += s*s;

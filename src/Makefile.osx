@@ -1,7 +1,7 @@
 CC = gcc
-CFLAGS = -Wall -O3 -funroll-loops -DNDEBUG -fomit-frame-pointer -std=gnu99 -msse2
-#CFLAGS = -std=c99 -Wall -g -std=gnu99
-#CFLAGS = -g -pg -std=c99
+CFLAGS = -Wall -O3 -funroll-loops -DNDEBUG -fomit-frame-pointer -std=gnu99 -msse2 
+#CFLAGS = -std=c99 -Wall -g -std=gnu99 -fstack-protector-all -D_FORTIFY_SOURCE=2
+#CFLAGS = -pg -std=gnu99 
 CFLAGSSFMT = -msse2 -DHAVE_SSE2 -O9 -finline-functions -fomit-frame-pointer \
 -DNDEBUG -fno-strict-aliasing --param max-inline-insns-single=1800 -std=c99
 LD = ld
