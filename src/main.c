@@ -35,6 +35,8 @@
 #include "normal.h"
 
 
+#define ILLUMINA_ADAPTER "AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGAT"
+
 void fprint_usage( FILE * fp){
     validate(NULL!=fp,);
     fputs(
@@ -42,7 +44,7 @@ void fprint_usage( FILE * fp){
 "Simulate likelihoods for Illumina data from fasta format files\n"
 "\n"
 "Usage:\n"
-"\tsimNGS [-b shape:scale] [-c correlation] [-d]\n"
+"\tsimNGS [-a adapter] [-b shape:scale] [-c correlation] [-d]\n"
 "\t       [-f nimpure:ncycle:threshold] [-i filename] [-l lane]\n"
 "\t       [-m insertion:deletion:mutation] [-n ncycle] [-o output_format]\n"
 "\t       [-p] [-r mu] [-s seed] [-t tile] [-v factor ]  runfile\n"
@@ -70,6 +72,11 @@ void fprint_help( FILE * fp){
 12345678901234567890123456789012345678901234567890123456789012345678901234567890
 */
 "\n"
+"-a, --adapter sequence [default: " ILLUMINA_ADAPTER " ]\n"
+"\tSequence to pad reads with if they are shorter than the number of\n"
+"cycles required, reflecting the adpater sequence used for sample preparaton.\n"
+"A null adapter (i.e. pad with ambiguity characters) can be specified by -a \"\"\n" 
+"\n" 
 "-b, --brightness shape:scale [default: as runfile]\n"
 "\tShape and scale of cluster brightnes distribution.\n"
 "Currently a Weibull distribution is used.\n"
@@ -124,6 +131,7 @@ void fprint_help( FILE * fp){
 }
 
 static struct option longopts[] = {
+    { "adapter",    required_argument, NULL, 'a'},
     { "brightness", required_argument, NULL, 'b' },
     { "correlation", required_argument, NULL, 'c' },
     { "describe",   no_argument,       NULL, 'd' },
@@ -187,6 +195,7 @@ typedef struct {
     enum outformat format;
     bool mutate;
     real_t ins,del,mut;
+    ARRAY(NUC) adapter;
 } * SIMOPT;
 
 SIMOPT new_SIMOPT(void){
@@ -211,6 +220,7 @@ SIMOPT new_SIMOPT(void){
     opt->format = OUTPUT_LIKE;
     opt->mutate = false;
     opt->ins=0.; opt->del=0.; opt->mut=0.;
+    opt->adapter = nucs_from_string(ILLUMINA_ADAPTER);
     
     return opt;
 }
@@ -244,14 +254,21 @@ void show_SIMOPT (FILE * fp, const SIMOPT simopt){
     fprintf( fp,"variance factor\t%f\n",simopt->sdfact*simopt->sdfact);
     fprintf( fp,"tile\t%u\tlane%u\n",simopt->tile,simopt->lane);
     fprintf( fp,"seed\t%u\n",simopt->seed);
+
     if(simopt->purity_cycles!=0){
        fprintf( fp,"Purity filtering: threshold %f. Maximum of %u inpure in %u cycles\n",simopt->purity_threshold, simopt->purity_max,simopt->purity_cycles);
     } else {
        fputs("No purity filtering.\n",stdout);
     }
+
     if(simopt->ins!=0. && simopt->del!=0. && simopt->mut!=0.){
         fprintf(fp,"Input sequence will be mutated with ins %f, del %f, mut %f\n",simopt->ins,simopt->del,simopt->mut);
     }
+
+    fputs("Reads will be padded with adapter sequence if necessary.\n",fp);
+    show_ARRAY(NUC)(fp,simopt->adapter,"",0);
+    fputc('\n',fp);
+
     fprintf(fp,"Writing %s to output.\n",output_format_str[simopt->format]);
     if(NULL!=simopt->intensity_fn){
         fprintf(fp,"Will write intensities to \"%s\"\n",simopt->intensity_fn);
@@ -263,10 +280,13 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
     SIMOPT simopt = new_SIMOPT();
     validate(NULL!=simopt,NULL);
     
-    while ((ch = getopt_long(argc, argv, "b:c:df:i:l:m:n:o:pr:s:t:uv:h", longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "a:b:c:df:i:l:m:n:o:pr:s:t:uv:h", longopts, NULL)) != -1){
         int ret;
         unsigned long int i=0,j=0;
         switch(ch){
+        case 'a':   free_ARRAY(NUC)(simopt->adapter);
+                    simopt->adapter = nucs_from_string(optarg);
+                    break;
         case 'b':   ret = sscanf(optarg,real_format_str ":" real_format_str ,&simopt->shape,&simopt->scale);
                     if(ret!=2){ errx(EXIT_FAILURE,"Insufficient arguments for brightness.");}
                     if(simopt->shape<=0.){ errx(EXIT_FAILURE,"Brightness shape must be greater than zero."); }
@@ -434,7 +454,7 @@ int main( int argc, char * argv[] ){
         simopt->seed = seed;
     }
     init_gen_rand( simopt->seed );
-    //show_SIMOPT(stderr,simopt);
+    show_SIMOPT(stderr,simopt);
     //show_MODEL(stderr,model);
 
     // Scan through fasta file
@@ -475,7 +495,7 @@ int main( int argc, char * argv[] ){
             lambda2 = qweibull(py,simopt->shape,simopt->scale,false,false);
         }
             
-        intensities = generate_pure_intensities(simopt->sdfact,lambda1,seq->seq,model->ncycle,model->chol1,intensities);
+        intensities = generate_pure_intensities(simopt->sdfact,lambda1,seq->seq,simopt->adapter,model->ncycle,model->chol1,intensities);
         loglike = likelihood_cycle_intensities(simopt->sdfact,simopt->mu,lambda1,intensities,model->invchol1,loglike);
         uint32_t x = (uint32_t)( 1794 * runif());
         uint32_t y = (uint32_t)( 2048 * runif());
@@ -509,7 +529,7 @@ int main( int argc, char * argv[] ){
             }
             if ( model->paired ){
                 ARRAY(NUC) rcseq = reverse_complement(seq->seq);
-                intensities = generate_pure_intensities(simopt->sdfact,lambda2,rcseq,model->ncycle,model->chol2,intensities);
+                intensities = generate_pure_intensities(simopt->sdfact,lambda2,rcseq,simopt->adapter,model->ncycle,model->chol2,intensities);
                 loglike = likelihood_cycle_intensities(simopt->sdfact,simopt->mu,lambda2,intensities,model->invchol2,loglike);
                 if(NULL!=fpout){ fprint_intensities(fpout,"",intensities,false); }
                 calls = call_by_maximum_likelihood(loglike,calls);

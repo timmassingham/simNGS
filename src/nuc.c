@@ -69,6 +69,17 @@ char char_from_nuc(const NUC nuc){
     }
     return 'N';
 }
+
+ARRAY(NUC) nucs_from_string( const char * nucstr ){
+    validate(NULL!=nucstr,null_ARRAY(NUC));
+    const uint32_t len = strlen(nucstr);
+    ARRAY(NUC) nucs = new_ARRAY(NUC)(len);
+    validate(0!=nucs.nelt,nucs);
+    for( uint32_t i=0 ; i<len ; i++){
+        nucs.elt[i] = nuc_from_char(nucstr[i]);
+    }
+    return nucs;
+}
     
 
 NUC complement(const NUC nuc){

@@ -2,7 +2,7 @@
 
 ** Usage
 
-        simNGS [-b shape:scale] [-c correlation] [-d]
+        simNGS [-a adapter] [-b shape:scale] [-c correlation] [-d]
                [-f nimpure:ncycle:threshold] [-i filename] [-l lane]
 	       [-m insertion:deletion:mutation] [-n ncycle] [-o output_format]
 	       [-p] [-r mu] [-s seed] [-t tile] [-v factor ]  runfile
@@ -11,6 +11,11 @@
 
 
 ** Detailed description
+
+-a, --adapter sequence [default: AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGAT ]
+	Sequence to pad reads with if they are shorter than the number of
+cycles required, reflecting the adpater sequence used for sample preparaton.
+A null adapter (i.e. pad with ambiguity characters) can be specified by -a ""
 
 -b, --brightness shape,scale [default: as runfile]
 	Set parameters for the distribution of cluster brightness. The cluster
