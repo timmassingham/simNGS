@@ -258,7 +258,7 @@ void show_SIMOPT (FILE * fp, const SIMOPT simopt){
     if(simopt->purity_cycles!=0){
        fprintf( fp,"Purity filtering: threshold %f. Maximum of %u inpure in %u cycles\n",simopt->purity_threshold, simopt->purity_max,simopt->purity_cycles);
     } else {
-       fputs("No purity filtering.\n",stdout);
+       fputs("No purity filtering.\n",fp);
     }
 
     if(simopt->ins!=0. && simopt->del!=0. && simopt->mut!=0.){
@@ -454,7 +454,7 @@ int main( int argc, char * argv[] ){
         simopt->seed = seed;
     }
     init_gen_rand( simopt->seed );
-    show_SIMOPT(stderr,simopt);
+    //show_SIMOPT(stderr,simopt);
     //show_MODEL(stderr,model);
 
     // Scan through fasta file
