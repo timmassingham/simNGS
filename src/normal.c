@@ -61,7 +61,7 @@ real_t pstdnorm( const real_t q, const bool tail, const bool logd){
 
     
 
-real_t rnormal( const real_t mean, const real_t sd ){
+real_t rnorm( const real_t mean, const real_t sd ){
 	if(sd<0){ return NAN;}
 	return mean + sd * rstdnorm();
 }
