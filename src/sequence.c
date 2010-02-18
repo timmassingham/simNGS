@@ -32,6 +32,11 @@
 #include "mystring.h"
 #include "random.h"
 
+bool hasQual( const SEQ seq){
+    validate(NULL!=seq,false);
+    return (NULL!=seq->qual.elt)?true:false;
+}
+
 
 void free_SEQ ( SEQ seq ){
    validate(NULL!=seq,);
@@ -70,7 +75,7 @@ SEQ resize_SEQ( SEQ seq, const uint32_t newlen){
     for ( uint32_t i=seq->length ; i<newlen ; i++){
         seq->seq.elt[i] = NUC_AMBIG;
     }
-    if(0!=seq->qual.nelt){
+    if(hasQual(seq)){
         seq->qual = resize_ARRAY(PHREDCHAR)(seq->qual,newlen);
         if(0==seq->qual.nelt){ free_SEQ(seq); return NULL;}
         for ( uint32_t i=seq->length ; i<newlen ; i++){
@@ -113,12 +118,12 @@ SEQ sequence_from_str ( const char * restrict name, const char * restrict seqstr
 SEQ copy_SEQ ( const SEQ seq){
    if(NULL==seq){ return NULL;}
 
-   SEQ newseq = new_SEQ(seq->length,(NULL!=seq->qual.elt)?true:false);
+   SEQ newseq = new_SEQ(seq->length,hasQual(seq)?true:false);
    if(NULL==newseq){return NULL;}
    // Sequence
    memcpy(newseq->seq.elt,seq->seq.elt,seq->length*sizeof(NUC));
    // Qualities
-   if(NULL!=seq->qual.elt){
+   if(hasQual(seq)){
        memcpy(newseq->qual.elt,seq->qual.elt,seq->length*sizeof(PHREDCHAR));
    }
    
@@ -146,14 +151,14 @@ void show_SEQ( FILE * fp, const SEQ seq){
    validate(NULL!=fp,);
    validate(NULL!=seq,);
 
-   (NULL==seq->qual.elt)? fputc('>',fp) : fputc('@',fp);
+   (!hasQual(seq)) ? fputc('>',fp) : fputc('@',fp);
    if(NULL!=seq->name){ fputs(seq->name,fp); }
    fputc('\n',fp);
    for ( uint32_t i=0 ; i<seq->length ; i++){
        show_NUC(fp,seq->seq.elt[i]);
    }
    fputc('\n',fp);
-   if(NULL!=seq->qual.elt){
+   if(hasQual(seq)){
       fputc('+',fp);
       if(NULL!=seq->qname){ fputs(seq->qname,fp); }
       fputc('\n',fp);
@@ -316,6 +321,36 @@ SEQ mutate_SEQ ( const SEQ seq, const real_t ins, const real_t del, const real_t
     }
     mutseq = resize_SEQ(mutseq,mcount);
     return mutseq;
+}
+
+SEQ sub_SEQ( const SEQ seq, const uint32_t loc, const uint32_t len){
+    validate(NULL!=seq,NULL);
+    
+    SEQ subseq = new_SEQ(len,hasQual(seq));
+    validate(NULL!=subseq,NULL);
+    
+    const uint32_t seqend = (loc+len<seq->length)?(len):(seq->length-loc);
+    // Name
+    subseq->name = copy_CSTRING(seq->name);
+    // Sequence
+    for ( uint32_t i=0 ; i<seqend ; i++){
+        subseq->seq.elt[i] = seq->seq.elt[loc+i];
+    }
+    for( uint32_t i=seqend ; i<len ; i++){
+        subseq->seq.elt[i] = NUC_AMBIG;
+    }
+
+    // Qualities
+    if(hasQual(seq)){
+        for ( uint32_t i=0 ; i<seqend ; i++){
+            subseq->qual.elt[i] = seq->qual.elt[loc+i];
+        }
+        for( uint32_t i=seqend ; i<len ; i++){
+            subseq->qual.elt[i] = MIN_PHRED;
+        }
+    }
+
+    return subseq;
 }
 
 #ifdef TEST

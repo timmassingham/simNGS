@@ -14,6 +14,8 @@ objects =  sfmt.o matrix.o nuc.o intensities.o normal.o weibull.o sequence.o mys
 simNGS: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(LDFLAGS) $(objects)
 
+genSplit: sfmt.o gensplit.o utility.o random.o sequence.o nuc.o mystring.o normal.o matrix.o
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(LDFLAGS) $^
 .c.o:
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o $@ -c $<
 
