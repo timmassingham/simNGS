@@ -469,7 +469,7 @@ int main( int argc, char * argv[] ){
         simopt->seed = seed;
     }
     init_gen_rand( simopt->seed );
-    show_SIMOPT(stderr,simopt);
+    //show_SIMOPT(stderr,simopt);
     //show_MODEL(stderr,model);
 
     // Scan through fasta file
