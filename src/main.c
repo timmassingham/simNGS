@@ -47,7 +47,8 @@ void fprint_usage( FILE * fp){
 "\tsimNGS [-a adapter] [-b shape:scale] [-c correlation] [-d]\n"
 "\t       [-f nimpure:ncycle:threshold] [-i filename] [-l lane]\n"
 "\t       [-m insertion:deletion:mutation] [-n ncycle] [-o output_format]\n"
-"\t       [-p] [-r mu] [-s seed] [-t tile] [-v factor ]  runfile\n"
+"\t       [-p] [-q quantile] [-r mu] [-s seed] [-t tile] [-v factor ]\n"
+"\t       runfile\n"
 "\tsimNGS --help\n"
 "\tsimNGS --licence\n"
 "simNGS reads from stdin and writes to stdout. Messages and progess\n"
@@ -117,6 +118,10 @@ void fprint_help( FILE * fp){
 "paired, the covariance matrix is duplicated to make two uncorrelated pairs.\n"
 "For paired-end runs treated as single, the second end is ignored.\n"
 "\n"
+"-q, --quantile quantile [default: 0]\n"
+"\tQuantile below which cluster brightness is discarded and redrawn from\n"
+"distribution.\n"
+"\n"
 "-r, --robust mu [default: 0]\n"
 "\tCalculate robustified likelihood, equivalent to adding mu to every\n"
 "likelihood.\n"
@@ -144,6 +149,7 @@ static struct option longopts[] = {
     { "ncycle",     required_argument, NULL, 'n' },
     { "output",     required_argument, NULL, 'o' },
     { "paired",     no_argument,       NULL, 'p' },
+    { "quantile",   required_argument, NULL, 'q' },
     { "robust",     required_argument, NULL, 'r' },
     { "seed",       required_argument, NULL, 's' },
     { "tile",       required_argument, NULL, 't' },
@@ -186,7 +192,7 @@ const char * output_format_str[] = { "likelihood", "fasta" };
 
 typedef struct {
     unsigned int ncycle;
-    real_t shape,scale,corr;
+    real_t shape,scale,corr,threshold;
     bool paired,desc;
     real_t mu,sdfact;
     uint32_t seed;
@@ -208,6 +214,7 @@ SIMOPT new_SIMOPT(void){
     opt->shape = 0.0;
     opt->scale = 0.0;
     opt->corr = 1.0;
+    opt->threshold = 0.0;
     opt->paired = false;
     opt->desc = false;
     opt->mu = 0.0;
@@ -253,6 +260,7 @@ void show_SIMOPT (FILE * fp, const SIMOPT simopt){
     fprintf( fp,"mu\t%f\n",simopt->mu);
     fprintf( fp,"shape\t%f\n",simopt->shape);
     fprintf( fp,"scale\t%f\n",simopt->scale);
+    fprintf( fp,"threshold\t%f\n",simopt->threshold);
     fprintf( fp,"variance factor\t%f\n",simopt->sdfact*simopt->sdfact);
     fprintf( fp,"tile\t%u\tlane%u\n",simopt->tile,simopt->lane);
     fprintf( fp,"seed\t%u\n",simopt->seed);
@@ -282,7 +290,7 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
     SIMOPT simopt = new_SIMOPT();
     validate(NULL!=simopt,NULL);
     
-    while ((ch = getopt_long(argc, argv, "a:b:c:df:i:l:m:n:o:pr:s:t:uv:h", longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "a:b:c:df:i:l:m:n:o:pq:r:s:t:uv:h", longopts, NULL)) != -1){
         int ret;
         unsigned long int i=0,j=0;
         switch(ch){
@@ -332,6 +340,11 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
                     }
                     break;
         case 'p':   simopt->paired = true;
+                    break;
+        case 'q':   simopt->threshold = parse_real(optarg);
+                    if(!isprob(simopt->threshold) ){ 
+                       errx(EXIT_FAILURE,"Threshold quantile to discard brightness must be a probability (got %e)\n",simopt->threshold);
+                    }
                     break;
         case 'r':   simopt->mu = parse_real(optarg);
                     if(simopt->mu<0.0){errx(EXIT_FAILURE,"Robustness \"mu\" must be non-negative.");}
@@ -485,13 +498,16 @@ int main( int argc, char * argv[] ){
         // Pick lambda using Gaussian Copula
         real_t lambda1=NAN,lambda2=NAN;
         {
-            const real_t corr = simopt->corr;
-            // Two correlated Gaussians
-            real_t x = rstdnorm();
-            real_t y = corr*x + sqrt(1-corr*corr) * rstdnorm();
-            // Convert to uniform deviates (the copula)
-            real_t px = pstdnorm(x,false,false);
-            real_t py = pstdnorm(y,false,false);
+            real_t px=0.0,py=0.0;
+            do{
+               const real_t corr = simopt->corr;
+               // Two correlated Gaussians
+               real_t x = rstdnorm();
+               real_t y = corr*x + sqrt(1-corr*corr) * rstdnorm();
+               // Convert to uniform deviates (the copula)
+               px = pstdnorm(x,false,false);
+               py = pstdnorm(y,false,false);
+            } while(px<simopt->threshold || py<simopt->threshold);
             // Convert to Weibull via inversion formula
             lambda1 = qweibull(px,simopt->shape,simopt->scale,false,false);
             lambda2 = qweibull(py,simopt->shape,simopt->scale,false,false);

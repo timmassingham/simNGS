@@ -5,7 +5,8 @@
         simNGS [-a adapter] [-b shape:scale] [-c correlation] [-d]
                [-f nimpure:ncycle:threshold] [-i filename] [-l lane]
 	       [-m insertion:deletion:mutation] [-n ncycle] [-o output_format]
-	       [-p] [-r mu] [-s seed] [-t tile] [-v factor ]  runfile
+	       [-p] [-q quantile] [-r mu] [-s seed] [-t tile] [-v factor ]
+               runfile
 	simNGS --help
         simNGS --licence
 
@@ -88,6 +89,14 @@ ignored. The covariance matrices for the ends of a paired-end run were estimated
 and stored separately, implying an assumption of independence between the two
 ends. The brightness of the cluster is assumed to be equal for both ends, which 
 can be changed using the "--correlation" option.
+
+
+-q, --quantile quantile [default: 0]
+	Quantile below which cluster brightness is discarded and redrawn from
+distribution. If the brightness of either end of the read is in the lower
+"quantile" quantile of the brightness distribution, then discard the values
+and redraw. Very dim clusters would be lost in the image analysis of a real
+real run and never found.
 
 
 -r, --robust mu [default: 0.]
