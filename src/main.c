@@ -61,7 +61,9 @@ void fprint_usage( FILE * fp){
 void fprint_licence (FILE * fp){
     validate(NULL!=fp,);
     fputs(
-#include "copyright.txt"
+#define PROGNAME "simNGS"
+"  simNGS software for simulating likelihoods for next-gen sequencing machines\n"
+#include "copyright.inc"
     ,fp);
 }
 
@@ -454,7 +456,7 @@ int main( int argc, char * argv[] ){
         simopt->seed = seed;
     }
     init_gen_rand( simopt->seed );
-    //show_SIMOPT(stderr,simopt);
+    show_SIMOPT(stderr,simopt);
     //show_MODEL(stderr,model);
 
     // Scan through fasta file
