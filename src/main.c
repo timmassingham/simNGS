@@ -481,6 +481,8 @@ int main( int argc, char * argv[] ){
     // Memory for error counting
     uint32_t * error = calloc(model->ncycle,sizeof(uint32_t));
     uint32_t * error2 = calloc(model->ncycle,sizeof(uint32_t));
+    uint32_t errorhist[7] = {0,0,0,0,0,0,0};
+    uint32_t errorhist2[7] = {0,0,0,0,0,0,0};
     
     FILE * fpout = (NULL!=simopt->intensity_fn) ? fopen(simopt->intensity_fn,"w") : NULL;
     if ( NULL==fpout && NULL!=simopt->intensity_fn){
@@ -534,9 +536,11 @@ int main( int argc, char * argv[] ){
 
         if ( number_inpure_cycles(intensities,simopt->purity_threshold,simopt->purity_cycles) <= simopt->purity_max){
             calls = call_by_maximum_likelihood(loglike,calls);
+            uint32_t nerr = 0;
             for ( uint32_t i=0 ; i<model->ncycle ; i++){
-                if(calls.elt[i] != seq->seq.elt[i]){ error[i]++;}
+                if(calls.elt[i] != seq->seq.elt[i]){ nerr++; error[i]++;}
             }
+            errorhist[(nerr<6)?nerr:6]++;
             switch(simopt->format){
                 case OUTPUT_LIKE:
                     fprint_intensities(stdout,"",loglike,false);
@@ -551,9 +555,11 @@ int main( int argc, char * argv[] ){
                 loglike = likelihood_cycle_intensities(simopt->sdfact,simopt->mu,lambda2,intensities,model->invchol2,loglike);
                 if(NULL!=fpout){ fprint_intensities(fpout,"",intensities,false); }
                 calls = call_by_maximum_likelihood(loglike,calls);
+                uint32_t nerr=0;
                 for ( uint32_t i=0 ; i<model->ncycle ; i++){
-                    if(calls.elt[i] != rcseq.elt[i]){ error2[i]++;}
+                    if(calls.elt[i] != rcseq.elt[i]){ nerr++; error2[i]++;}
                 }
+                errorhist2[(nerr<6)?nerr:6]++;
                 switch(simopt->format){
                     case OUTPUT_LIKE:
                         fprint_intensities(stdout,"",loglike,false);
@@ -598,6 +604,19 @@ int main( int argc, char * argv[] ){
             const real_t e2 = ((real_t)error2[i])/unfiltered_count;
             fprintf(stderr,"%7u %6.2f (%6.2f,%6.2f)",error2[i], phred(e2), phred(prop_upper(e2,unfiltered_count)), phred(prop_lower(e2,unfiltered_count)));
         }
+    }
+    fputc('\n',stderr);
+    // Histograms
+    fputs("Number of errors per read",stderr);
+    for ( uint32_t i=0 ; i<6 ; i++){
+        fprintf(stderr,"\n%2u: %7u %6.2f",i,errorhist[i],(100.0*errorhist[i])/unfiltered_count);
+        if(simopt->paired){
+            fprintf(stderr,"\t %7u %6.2f",errorhist[i],(100.0*errorhist[i])/unfiltered_count);
+        }
+    }
+    fprintf(stderr,"\n>5: %7u %6.2f",errorhist[6],(100.0*errorhist[6])/unfiltered_count);
+    if(simopt->paired){
+        fprintf(stderr,"\t %7u %6.2f",errorhist[6],(100.0*errorhist[6])/unfiltered_count);
     }
     fputc('\n',stderr);
     free_MODEL(model);
