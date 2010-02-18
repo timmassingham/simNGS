@@ -27,6 +27,6 @@ uint32_t rchoose( const real_t * p, const uint32_t n){
     real_t x = runif();
     uint32_t i=0;
     while( i<n && x>p[i]){ x-=p[i]; i++; }
-    return i;
+    return (i<n)?i:(n-1); // Incase of numeric problems
 }
 
