@@ -29,12 +29,12 @@
 
 #define Q_(A) #A
 #define QUOTE(A) Q_(A)
-#define DEFAULT_COV         0.000461361
+#define DEFAULT_COV         0.055
 #define DEFAULT_INSERT      400
 #define DEFAULT_NCYCLE      45
 #define DEFAULT_COVERAGE    2
 #define DEFAULT_BIAS        0.5
-#define PROGNAME "gensplit"
+#define PROGNAME "simLibrary"
 
 uint32_t nfragment_from_coverage(const uint32_t genlen, const uint32_t coverage, const uint32_t readlen, const bool paired){
     const uint32_t bases_per_read = paired?(2*readlen):readlen;
@@ -51,26 +51,26 @@ CSTRING fragname(const CSTRING name,const char strand, const uint32_t loc, const
 void fprint_usage( FILE * fp){
     validate(NULL!=fp,);
     fputs(
-"\t\"gensplit\"\n"
+"\t\"" PROGNAME "\"\n"
 "Split sequence into a simulated library of fragments\n"
 "\n"
 "Usage:\n"
-"\tgensplit [-b bias] [-c cov] [-f nfragment] [-i insertlen] -p\n"
+"\t" PROGNAME " [-b bias] [-c cov] [-f nfragment] [-i insertlen] -p\n"
 "\t         [-r readlen] [-s seed] [-v variance] [-x coverage]\n"
-"\tgensplit --help\n"
-"\tgensplit --licence\n"
-"gensplit reads from stdin and writes to stdout. Messages and progess\n"
+"\t" PROGNAME " --help\n"
+"\t" PROGNAME " --licence\n"
+PROGNAME " reads from stdin and writes to stdout. Messages and progess\n"
 "indicators are written to stderr.\n"
 "\n"
 "Example:\n"
-"\tcat genome.fa | gensplit > library.fa\n"
+"\tcat genome.fa | " PROGNAME " > library.fa\n"
 ,fp);
 }
 
 void fprint_licence(FILE * fp){
     validate(NULL!=fp,);
     fputs(
-"  gensplit software for simulating libraries of fragments from genomic sequence\n"
+"  " PROGNAME " software for simulating libraries of fragments from genomic sequence\n"
 #include "copyright.inc"
     ,fp);
 }
