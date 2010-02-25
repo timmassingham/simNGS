@@ -35,6 +35,7 @@
 #define DEFAULT_COVERAGE    2
 #define DEFAULT_BIAS        0.5
 #define PROGNAME "simLibrary"
+#define PROGVERSION "1.0"
 
 uint32_t nfragment_from_coverage(const uint32_t genlen, const uint32_t coverage, const uint32_t readlen, const bool paired){
     const uint32_t bases_per_read = paired?(2*readlen):readlen;
@@ -59,6 +60,7 @@ void fprint_usage( FILE * fp){
 "\t         [-r readlen] [-s seed] [-v variance] [-x coverage]\n"
 "\t" PROGNAME " --help\n"
 "\t" PROGNAME " --licence\n"
+"\t" PROGNAME " --version\n"
 PROGNAME " reads from stdin and writes to stdout. Messages and progess\n"
 "indicators are written to stderr.\n"
 "\n"
@@ -74,6 +76,15 @@ void fprint_licence(FILE * fp){
 #include "copyright.inc"
     ,fp);
 }
+
+void fprint_version(FILE * fp){
+    validate(NULL!=fp,);
+    fputs(
+"  " PROGNAME " software for simulating likelihoods for next-gen sequencing machines\n"
+"Version " PROGVERSION " (compiled: " __DATE__ " using " __VERSION__ ")\n"
+, fp);
+}
+
 
 void fprint_help( FILE * fp){
     validate(NULL!=fp,);
@@ -137,7 +148,8 @@ static struct option longopts[] = {
     { "variance",   required_argument, NULL, 'v'},
     { "coverage",   required_argument, NULL, 'x'},
     { "help",       no_argument,       NULL, 'h'},
-    { "licence",    no_argument,       NULL, 0 }
+    { "licence",    no_argument,       NULL, 0 },
+    { "version",    no_argument,       NULL, 1 }
 };
 
 typedef struct {
@@ -236,6 +248,9 @@ OPT parse_options(const int argc, char * const argv[] ){
             exit(EXIT_SUCCESS);
         case 0:
             fprint_licence(stderr);
+            exit(EXIT_SUCCESS);
+        case 1:
+            fprint_version(stderr);
             exit(EXIT_SUCCESS);
         default:
             fprint_usage(stderr);
