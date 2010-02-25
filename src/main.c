@@ -36,37 +36,48 @@
 
 
 #define ILLUMINA_ADAPTER "AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGAT"
+#define PROGNAME "simNGS"
+#define PROGVERSION "1.0"
 
 void fprint_usage( FILE * fp){
     validate(NULL!=fp,);
     fputs(
-"\t\"simNGS\"\n"
+"\t\"" PROGNAME "\"\n"
 "Simulate likelihoods for Illumina data from fasta format files\n"
 "\n"
 "Usage:\n"
-"\tsimNGS [-a adapter] [-b shape:scale] [-c correlation] [-d]\n"
+"\t" PROGNAME " [-a adapter] [-b shape:scale] [-c correlation] [-d]\n"
 "\t       [-f nimpure:ncycle:threshold] [-i filename] [-l lane]\n"
 "\t       [-m insertion:deletion:mutation] [-n ncycle] [-o output_format]\n"
 "\t       [-p] [-q quantile] [-r mu] [-s seed] [-t tile] [-v factor ]\n"
 "\t       runfile\n"
-"\tsimNGS --help\n"
-"\tsimNGS --licence\n"
-"simNGS reads from stdin and writes to stdout. Messages and progess\n"
+"\t" PROGNAME " --help\n"
+"\t" PROGNAME " --licence\n"
+"\t" PROGNAME " --version\n"
+"" PROGNAME " reads from stdin and writes to stdout. Messages and progess\n"
 "indicators are written to stderr.\n"
 "\n"
 "Example:\n"
-"\tcat sequences.fa | simNGS runfile > sequences.like\n"
+"\tcat sequences.fa | " PROGNAME " runfile > sequences.like\n"
 ,fp);
 }
 
 void fprint_licence (FILE * fp){
     validate(NULL!=fp,);
     fputs(
-#define PROGNAME "simNGS"
-"  simNGS software for simulating likelihoods for next-gen sequencing machines\n"
+"  " PROGNAME " software for simulating likelihoods for next-gen sequencing machines\n"
 #include "copyright.inc"
     ,fp);
 }
+
+void fprint_version(FILE * fp){
+    validate(NULL!=fp,);
+    fputs(
+"  " PROGNAME " software for simulating likelihoods for next-gen sequencing machines\n"
+"Version " PROGVERSION " (compiled: " __DATE__ " using " __VERSION__ ")\n"
+, fp);
+}
+
 
 void fprint_help( FILE * fp){
     validate(NULL!=fp,);
@@ -156,6 +167,7 @@ static struct option longopts[] = {
     { "variance",   required_argument, NULL, 'v' },
     { "help",       no_argument,       NULL, 'h' },
     { "licence",    no_argument,       NULL, 0 },
+    { "version",    no_argument,       NULL, 1 }
 };
 
 bool parse_bool( const CSTRING str){
@@ -365,6 +377,9 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
         case 0:
             fprint_licence(stderr);
             exit(EXIT_SUCCESS);
+        case 1:
+            fprint_version(stderr);
+            exit(EXIT_SUCCESS);
         default:
             fprint_usage(stderr);
             exit(EXIT_FAILURE);
@@ -532,6 +547,8 @@ int main( int argc, char * argv[] ){
            case OUTPUT_FASTA:
                fprintf(stdout,">%s\n",seq->name);
                break;
+           default:
+               errx(EXIT_FAILURE,"Unrecognised format in %s (%s:%d)",__func__,__FILE__,__LINE__);
         }
 
         if ( number_inpure_cycles(intensities,simopt->purity_threshold,simopt->purity_cycles) <= simopt->purity_max){
