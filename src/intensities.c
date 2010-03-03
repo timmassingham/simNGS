@@ -379,6 +379,30 @@ ARRAY(NUC) call_by_maximum_likelihood(const MAT likelihood, ARRAY(NUC) calls){
     return calls;
 }
 
+ARRAY(PHREDCHAR) quality_from_likelihood(const MAT likelihood, const ARRAY(NUC) calls, ARRAY(PHREDCHAR) quals){
+    validate(NULL!=likelihood,null_ARRAY(PHREDCHAR));
+    validate(NULL!=calls.elt,null_ARRAY(PHREDCHAR));
+    validate(NBASE==likelihood->nrow,null_ARRAY(PHREDCHAR));
+    const uint32_t ncycle = likelihood->ncol;
+    if ( NULL==quals.elt){
+       quals = new_ARRAY(PHREDCHAR)(ncycle);
+       validate(NULL!=quals.elt,null_ARRAY(PHREDCHAR));
+    }
+    
+    // likelihoods are stored as -log-likelihood so
+    // max likelihood <==> min -log-likelihood
+    for ( uint32_t cycle=0 ; cycle<ncycle ; cycle++){
+        NUC mb = calls.elt[cycle];
+        real_t tot = 0., ml=likelihood->x[cycle*NBASE+mb];
+        for( uint32_t b=0 ; b<NBASE ; b++){
+            tot += exp(ml-likelihood->x[cycle*NBASE+b]);
+        }
+        quals.elt[cycle] = phredchar_from_prob(1./tot);
+    }
+    return quals;
+}
+
+
 real_t purity ( real_t * ints4 ){
     real_t max1=fabs(ints4[0]);
     real_t max2=fabs(ints4[1]);

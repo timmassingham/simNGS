@@ -43,6 +43,7 @@ NUC read_NUC(FILE * fp);
 PHREDCHAR read_PHREDCHAR(FILE * fp);
 #define MIN_PHRED   33
 #define MAX_PHRED   126
+#define ERR_PHRED   0
 
 #define X(A) A ## NUC
 #include "array.def"
@@ -59,6 +60,7 @@ ARRAY(NUC) nucs_from_string( const char * nucstr );
 NUC complement(const NUC nuc);
 ARRAY(NUC) reverse_complement(const ARRAY(NUC) nucs);
 PHREDCHAR phredchar_from_char( const char c);
+PHREDCHAR phredchar_from_prob( const real_t p);
 NUC random_NUC(void);
 NUC random_other_NUC(const NUC nuc);
 

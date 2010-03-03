@@ -20,6 +20,7 @@
  */
 
 #include <stdio.h>
+#include <tgmath.h>
 #include "utility.h"
 #include "nuc.h"
 #include "random.h"
@@ -106,6 +107,14 @@ PHREDCHAR phredchar_from_char( const char c){
     validate(c>=MIN_PHRED,MIN_PHRED);
     validate(c<=MAX_PHRED,MAX_PHRED);
     return c;
+}
+
+PHREDCHAR phredchar_from_prob( const real_t p){
+    validate(isprob(p),ERR_PHRED);
+    real_t c = 33-10*log1p(-p)/log(10);
+    if(c<MIN_PHRED){c=MIN_PHRED;}
+    if(c>MAX_PHRED){c=MAX_PHRED;}
+    return (PHREDCHAR)(c+0.5);
 }
 
 NUC random_NUC(void){

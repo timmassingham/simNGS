@@ -4,10 +4,10 @@
 
         simNGS [-a adapter] [-b shape:scale] [-c correlation] [-d]
                [-f nimpure:ncycle:threshold] [-i filename] [-l lane]
-	       [-m insertion:deletion:mutation] [-n ncycle] [-o output_format]
-	       [-p] [-q quantile] [-r mu] [-s seed] [-t tile] [-v factor ]
+               [-m insertion:deletion:mutation] [-n ncycle] [-o output_format]
+               [-p] [-q quantile] [-r mu] [-s seed] [-t tile] [-v factor ]
                runfile
-	simNGS --help
+        simNGS --help
         simNGS --licence
 
 
@@ -17,6 +17,7 @@
 	Sequence to pad reads with if they are shorter than the number of
 cycles required, reflecting the adpater sequence used for sample preparaton.
 A null adapter (i.e. pad with ambiguity characters) can be specified by -a ""
+
 
 -b, --brightness shape,scale [default: as runfile]
 	Set parameters for the distribution of cluster brightness. The cluster
@@ -31,7 +32,7 @@ where \Gamma is the Gamma function.
 
 
 -c, --correlation [default: 1.0]
-Correlation between brightness of one end of a paired-end run and the
+	Correlation between brightness of one end of a paired-end run and the
 other. Correlation is implemented using a Gaussian copula, the marginal
 distributions being Weibull with parameters specified in the runfile or
 on the commandline, so its value should belong to [-1,1].
@@ -49,8 +50,8 @@ purity is M / (M+N).
 
 
 -i, --intensities filename [default: none]
-	Write (processed) intensities to "filename" in a format identical to that
-as the likelihoods but with each likelihood replaced by its corresponding
+	Write (processed) intensities to "filename" in a format identical to 
+that as the likelihoods but with each likelihood replaced by its corresponding
 intensity.
 
 
@@ -68,17 +69,20 @@ the bases different from that present in the original sequence.
 
 
 -n, --ncycle ncycle [default: as runfile]
-        Number of cycles to generate likelihoods for, up to maximum allowed in
+	Number of cycles to generate likelihoods for, up to maximum allowed in
 the runfile. If more cycles are asked for than allowed, a warning is printed and
 the number of cycles outputted is restricted to number specificed in the
 runfile.
 
 
 -o, --output format [default: likelihood]
-	Format in which to output results. Either "likelihood" or "fasta".
-"likelihood" is the format specified in the file README.txt, containing the
-likelihoods of all possible base-calls. "fasta" gives the called sequences in
-FASTA format, paired-end reads being concatenated together.
+	Format in which to output results. Either "likelihood", "fasta" or
+"fastq". "likelihood" is the format specified in the file README.txt, 
+containing the likelihoods of all possible base-calls. "fasta" gives the 
+called sequences in FASTA format, paired-end reads being concatenated together.
+Similar "fastq" outputs sequences and qualities in fastq format; unless 
+over-ridden setting the output format to "fastq" sets mu to 1e-5 to better 
+calibrate the qualities for polymerase error. See "--robust" for details.
 
 
 -p, --paired

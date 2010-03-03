@@ -51,6 +51,7 @@ MAT generate_pure_intensities ( const real_t varfact, const real_t lambda, const
 MAT likelihood_cycle_intensities ( const real_t varfact, real_t mu, const real_t lambda, const MAT ints, const MAT invchol[], MAT like);
 void fprint_intensities(FILE * fp, const char * prefix, const MAT ints, const bool last);
 ARRAY(NUC) call_by_maximum_likelihood(const MAT likelihood, ARRAY(NUC) calls);
+ARRAY(PHREDCHAR) quality_from_likelihood(const MAT likelihood, const ARRAY(NUC) calls, ARRAY(PHREDCHAR) quals);
 uint32_t number_inpure_cycles( const MAT intensities, const real_t threshold, const uint32_t ncycle);
 
 #endif

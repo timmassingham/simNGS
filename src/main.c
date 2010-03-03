@@ -122,7 +122,8 @@ void fprint_help( FILE * fp){
 "\tNumber of cycles to do, up to maximum allowed for runfile.\n"
 "\n"
 "-o, --output format [default: likelihood]\n"
-"\tFormat in which to output results. Either \"likelihood\" or \"fasta\"\n"
+"\tFormat in which to output results. Either \"likelihood\", \"fasta\",\n"
+"or \"fastq\".\n"
 "\n"
 "-p, --paired\n"
 "\tTreat run as paired-end. For single-ended runs treated as\n"
@@ -199,8 +200,8 @@ unsigned int parse_uint( const CSTRING str){
     return n;
 }
 
-enum outformat { OUTPUT_LIKE=0, OUTPUT_FASTA };
-const char * output_format_str[] = { "likelihood", "fasta" };
+enum outformat { OUTPUT_LIKE=0, OUTPUT_FASTA, OUTPUT_FASTQ };
+const char * output_format_str[] = { "likelihood", "fasta", "fastq" };
 
 typedef struct {
     unsigned int ncycle;
@@ -347,7 +348,10 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
                     break;
         case 'o':   if( strcasecmp(optarg,output_format_str[OUTPUT_LIKE])==0 ){ simopt->format = OUTPUT_LIKE; }
                     else if ( strcasecmp(optarg,output_format_str[OUTPUT_FASTA])==0 ){ simopt->format = OUTPUT_FASTA; }
-                    else {
+                    else if ( strcasecmp(optarg,output_format_str[OUTPUT_FASTQ])==0 ){
+                        simopt->format = OUTPUT_FASTQ;
+                        if(simopt->mu==0){ simopt->mu = 1e-5;}
+                    } else {
                         errx(EXIT_FAILURE,"Unrecognised output option %s.",optarg);
                     }
                     break;
@@ -488,8 +492,9 @@ int main( int argc, char * argv[] ){
     //show_MODEL(stderr,model);
 
     // Scan through fasta file
-    MAT intensities = NULL, loglike = NULL;
-    ARRAY(NUC) calls = null_ARRAY(NUC);
+    MAT intensities=NULL, intensities2=NULL, loglike=NULL, loglike2=NULL;
+    ARRAY(NUC) calls = null_ARRAY(NUC), calls2 = null_ARRAY(NUC);
+    ARRAY(PHREDCHAR) quals = null_ARRAY(PHREDCHAR), quals2 = null_ARRAY(PHREDCHAR);
     SEQ seq = NULL;
     FILE * fp =  stdin; //fopen("test/test100_small.fa","r");
     uint32_t seq_count=0, unfiltered_count=0;
@@ -503,6 +508,16 @@ int main( int argc, char * argv[] ){
     if ( NULL==fpout && NULL!=simopt->intensity_fn){
         fprintf(stderr,"Failed to open \"%s\" for writing.\n",simopt->intensity_fn);
     }
+    
+    // Create sequence of ambiguities for filtered calls
+    const uint32_t lim = (model->paired)?(2*model->ncycle):model->ncycle;
+    ARRAY(NUC) ambigseq = new_ARRAY(NUC)(lim);
+    ARRAY(PHREDCHAR) ambigphred = new_ARRAY(PHREDCHAR)(lim);
+    for( uint32_t i=0 ; i<lim ; i++){
+        ambigseq.elt[i] = NUC_AMBIG;
+        ambigphred.elt[i] = '!';
+    }
+
 
     while ((seq=sequence_from_fasta(fp))!=NULL){
         //show_SEQ(stderr,seq);
@@ -540,63 +555,73 @@ int main( int argc, char * argv[] ){
             fprint_intensities(fpout,"",intensities,false);
         }
 
-        switch(simopt->format){
-           case OUTPUT_LIKE:
-               fprintf(stdout,"%u\t%u\t%u\t%u",model->lane,model->tile,x,y);
-               break;
-           case OUTPUT_FASTA:
-               fprintf(stdout,">%s\n",seq->name);
-               break;
-           default:
-               errx(EXIT_FAILURE,"Unrecognised format in %s (%s:%d)",__func__,__FILE__,__LINE__);
-        }
-
+        bool filtered = true;
         if ( number_inpure_cycles(intensities,simopt->purity_threshold,simopt->purity_cycles) <= simopt->purity_max){
+            filtered = false;
             calls = call_by_maximum_likelihood(loglike,calls);
             uint32_t nerr = 0;
             for ( uint32_t i=0 ; i<model->ncycle ; i++){
                 if(calls.elt[i] != seq->seq.elt[i]){ nerr++; error[i]++;}
             }
             errorhist[(nerr<6)?nerr:6]++;
-            switch(simopt->format){
-                case OUTPUT_LIKE:
-                    fprint_intensities(stdout,"",loglike,false);
-                    break;
-                case OUTPUT_FASTA:
-                    show_ARRAY(NUC)(stdout,calls,"",0);
-                    break;
-            }
+            quals = quality_from_likelihood(loglike,calls,quals);
+
             if ( model->paired ){
                 ARRAY(NUC) rcseq = reverse_complement(seq->seq);
-                intensities = generate_pure_intensities(simopt->sdfact,lambda2,rcseq,simopt->adapter,model->ncycle,model->chol2,intensities);
-                loglike = likelihood_cycle_intensities(simopt->sdfact,simopt->mu,lambda2,intensities,model->invchol2,loglike);
-                if(NULL!=fpout){ fprint_intensities(fpout,"",intensities,false); }
-                calls = call_by_maximum_likelihood(loglike,calls);
+                intensities2 = generate_pure_intensities(simopt->sdfact,lambda2,rcseq,simopt->adapter,model->ncycle,model->chol2,intensities2);
+                loglike2 = likelihood_cycle_intensities(simopt->sdfact,simopt->mu,lambda2,intensities2,model->invchol2,loglike2);
+                if(NULL!=fpout){ fprint_intensities(fpout,"",intensities2,false); }
+                calls2 = call_by_maximum_likelihood(loglike2,calls2);
                 uint32_t nerr=0;
                 for ( uint32_t i=0 ; i<model->ncycle ; i++){
-                    if(calls.elt[i] != rcseq.elt[i]){ nerr++; error2[i]++;}
+                    if(calls2.elt[i] != rcseq.elt[i]){ nerr++; error2[i]++;}
                 }
                 errorhist2[(nerr<6)?nerr:6]++;
-                switch(simopt->format){
-                    case OUTPUT_LIKE:
-                        fprint_intensities(stdout,"",loglike,false);
-                        break;
-                    case OUTPUT_FASTA:
-                        show_ARRAY(NUC)(stdout,calls,"",0);
-                        break;
-                }
+                quals2 = quality_from_likelihood(loglike2,calls2,quals2);
                 free_ARRAY(NUC)(rcseq);
             }
             unfiltered_count++;
-        } else {
-            // Represent filtered fasta's as N's
-            if ( OUTPUT_FASTA==simopt->format ){
-                const uint32_t lim = (model->paired)?(2*model->ncycle):model->ncycle;
-                for ( uint32_t cy=0 ; cy<lim ; cy++){
-                    show_NUC(stdout,NUC_AMBIG);
-                }
-            }
         }
+        
+        // Output in format requested
+        // Should probably factor out
+        switch(simopt->format){
+           case OUTPUT_LIKE:
+               fprintf(stdout,"%u\t%u\t%u\t%u",model->lane,model->tile,x,y);
+               if(!filtered){
+                    fprint_intensities(stdout,"",loglike,false);
+                    if(simopt->paired){fprint_intensities(stdout,"",loglike2,false);}
+               }
+               break;
+           case OUTPUT_FASTA:
+               fprintf(stdout,">%s\n",seq->name);
+               if(!filtered){
+                   show_ARRAY(NUC)(stdout,calls,"",0);
+                   if(simopt->paired){ show_ARRAY(NUC)(stdout,calls2,"",0);}
+               } else {
+                   show_ARRAY(NUC)(stdout,ambigseq,"",0);
+               }
+               break;
+           case OUTPUT_FASTQ:
+               fprintf(stdout,"@%s\n",seq->name);
+               if(!filtered){
+                   show_ARRAY(NUC)(stdout,calls,"",0);
+                   if(simopt->paired){ show_ARRAY(NUC)(stdout,calls2,"",0);}
+               } else {
+                   show_ARRAY(NUC)(stdout,ambigseq,"",0);
+               }
+               fputs("\n+\n",stdout);
+               if(!filtered){
+                   show_ARRAY(PHREDCHAR)(stdout,quals,"",0);
+                   if(simopt->paired){ show_ARRAY(PHREDCHAR)(stdout,quals2,"",0);}
+               } else {
+                   show_ARRAY(PHREDCHAR)(stdout,ambigphred,"",0);
+               }
+               break;
+           default:
+               errx(EXIT_FAILURE,"Unrecognised format in %s (%s:%d)",__func__,__FILE__,__LINE__);
+        }
+
         fputc('\n',stdout);
         if(NULL!=fpout){ fputc('\n',fpout); }
         free_SEQ(seq);
@@ -606,9 +631,14 @@ int main( int argc, char * argv[] ){
     fprintf(stderr,"\rFinished generating %8u sequences\n",seq_count);
     if(simopt->purity_cycles>0){ fprintf(stderr,"%8u sequences passed filter.\n",unfiltered_count);}
     if(NULL!=fpout){fclose(fpout);}
+    free_ARRAY(NUC)(calls2);
+    free_MAT(loglike2);
+    free_MAT(intensities2);
     free_ARRAY(NUC)(calls);
     free_MAT(loglike);
     free_MAT(intensities);
+    free_ARRAY(PHREDCHAR)(ambigphred);
+    free_ARRAY(NUC)(ambigseq);
 
     // Print error summary
     fputs("Summary of errors, calling by maximum likelihood\n",stderr);

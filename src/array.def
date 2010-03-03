@@ -7,7 +7,7 @@
     #include "utility.h"
     
     #define ARRAY(A)		struct _array_ ## A
-    #define null_ARRAY(A)	(ARRAY(A)){NULL,0};
+    #define null_ARRAY(A)	(ARRAY(A)){NULL,0}
     #define new_ARRAY(A)	new_array_ ## A
     #define resize_ARRAY(A) resize_array_ ## A
     #define free_ARRAY(A)	free_array_ ## A
