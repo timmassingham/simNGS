@@ -33,7 +33,7 @@ static const char LAPACK_LOWER[] = {'L'};
 static const char LAPACK_UNITTRI[] = {'U'};
 static const char LAPACK_NONUNITTRI[] = {'N'};
 static const char LAPACK_TRANS[] = {'T'};
-static const char LAPACK_NOTRANS[] = {'T'};
+static const char LAPACK_NOTRANS[] = {'N'};
 static const int LAPACK_UNIT[] = {1};
 
 // Float functions
