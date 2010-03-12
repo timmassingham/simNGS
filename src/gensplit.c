@@ -274,7 +274,7 @@ int main ( int argc, char * argv[]){
     }
     init_gen_rand( opt->seed );
     
-    real_t effectivelen = opt->insertlen + opt->ncycle + (opt->paired)?opt->ncycle:0;
+    real_t effectivelen = opt->insertlen + opt->ncycle + ((opt->paired)?opt->ncycle:0);
     real_t log_sd = (0==opt->variance)?
         sqrt(log1p(opt->cov)) :
         sqrt(log1p(opt->variance/(effectivelen*effectivelen)));
