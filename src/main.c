@@ -53,6 +53,7 @@ void fprint_usage( FILE * fp){
 "\t       runfile\n"
 "\t" PROGNAME " --help\n"
 "\t" PROGNAME " --licence\n"
+"\t" PROGNAME " --license\n"
 "\t" PROGNAME " --version\n"
 "" PROGNAME " reads from stdin and writes to stdout. Messages and progess\n"
 "indicators are written to stderr.\n"
@@ -168,6 +169,7 @@ static struct option longopts[] = {
     { "variance",   required_argument, NULL, 'v' },
     { "help",       no_argument,       NULL, 'h' },
     { "licence",    no_argument,       NULL, 0 },
+    { "license",    no_argument,       NULL, 0 },
     { "version",    no_argument,       NULL, 1 }
 };
 
