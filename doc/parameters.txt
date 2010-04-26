@@ -3,13 +3,13 @@
 ** Usage
 
         simNGS [-a adapter] [-b shape:scale] [-c correlation] [-d]
-               [-f nimpure:ncycle:threshold] [-i filename] [-l lane]
-               [-m insertion:deletion:mutation] [-n ncycle] [-o output_format]
-               [-p] [-q quantile] [-r mu] [-s seed] [-t tile] [-v factor ]
-               runfile
+               [-f nimpure:ncycle:threshold] [-i filename] [-j range:a:b]
+               [-l lane] [-m insertion:deletion:mutation] [-n ncycle]
+               [-o output_format] [-p] [-q quantile] [-r mu] [-s seed]
+               [-t tile] [-v factor ] runfile
         simNGS --help
         simNGS --licence
-
+        simNGS --license
 
 ** Detailed description
 
@@ -53,6 +53,17 @@ purity is M / (M+N).
 	Write (processed) intensities to "filename" in a format identical to 
 that as the likelihoods but with each likelihood replaced by its corresponding
 intensity.
+
+-j, --jumble range:a:b [default: none]
+    Jumble generated intensities with those of other reads, simulating cases
+where clusters have merged.
+A random read is picked from the <range> reads after each each and their
+intensities mixed to final intensities for analysis. Mixing is according to a
+Kumaraswamy distribution with parameters a and b, a being the shape parameter
+for the current read and b that for the randomly picked read. When the final
+read is inputed, all reads in the last <range> are mixed with each other; if
+there where less than <range> reads in inputed in total, all reads are mixed
+together.
 
 
 -l, --lane lane [default: as runfile]

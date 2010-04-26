@@ -19,6 +19,7 @@
  *  along with simNGS.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <assert.h>
 #include <stdio.h>
 #include <getopt.h>
 #include <stdbool.h>
@@ -33,11 +34,62 @@
 #include "intensities.h"
 #include "weibull.h"
 #include "normal.h"
+#include "kumaraswamy.h"
 
 
 #define ILLUMINA_ADAPTER "AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGAT"
 #define PROGNAME "simNGS"
 #define PROGVERSION "1.0"
+
+ARRAY(NUC) ambigseq = {NULL,0};
+ARRAY(PHREDCHAR) ambigphred = {NULL,0};
+
+typedef struct {
+    MAT intensities;
+    MAT loglike;
+    ARRAY(NUC) calls;
+    ARRAY(PHREDCHAR) quals;
+    bool pass_filter;
+} * CALLED;
+
+typedef struct{
+    CSTRING name;
+    bool paired;
+    real_t lambda1, lambda2;
+    ARRAY(NUC) seq, rcseq;
+    MAT int1,int2;
+} * SEQSTR;
+
+void free_SEQSTR( SEQSTR seqstr){
+    if(NULL==seqstr){ return;}
+    free_MAT(seqstr->int1);
+    free_MAT(seqstr->int2);
+    free_CSTRING(seqstr->name);
+    free_ARRAY(NUC)(seqstr->seq);
+    free_ARRAY(NUC)(seqstr->rcseq);
+    free(seqstr);
+}
+
+void show_SEQSTR(FILE * fp, const SEQSTR seqstr){
+    if(NULL==fp){return;}
+    if(NULL==seqstr){ return;}
+    fprintf(fp,"Intensities for %s\n",seqstr->name);
+    fprintf(fp,"Forwards, brightness = %f\n",seqstr->lambda1);
+    show_ARRAY(NUC)(fp,seqstr->seq,"",40);
+    fputc('\n',fp);
+    show_MAT(fp,seqstr->int1,4,8);
+    if(seqstr->paired){
+        fprintf(fp,"Backwards, brightness = %f\n",seqstr->lambda2);
+        show_ARRAY(NUC)(fp,seqstr->rcseq,"",40);
+        fputc('\n',fp);
+        show_MAT(fp,seqstr->int2,4,8);
+    }
+}
+        
+#define X(A) A ## SEQSTR
+#include "circbuff.def"
+#undef X
+
 
 void fprint_usage( FILE * fp){
     validate(NULL!=fp,);
@@ -47,10 +99,10 @@ void fprint_usage( FILE * fp){
 "\n"
 "Usage:\n"
 "\t" PROGNAME " [-a adapter] [-b shape:scale] [-c correlation] [-d]\n"
-"\t       [-f nimpure:ncycle:threshold] [-i filename] [-l lane]\n"
-"\t       [-m insertion:deletion:mutation] [-n ncycle] [-o output_format]\n"
-"\t       [-p] [-q quantile] [-r mu] [-s seed] [-t tile] [-v factor ]\n"
-"\t       runfile\n"
+"\t       [-f nimpure:ncycle:threshold] [-i filename] [-j range:a:b]\n"
+"\t       [-l lane] [-m insertion:deletion:mutation] [-n ncycle]\n"
+"\t       [-o output_format] [-p] [-q quantile] [-r mu] [-s seed]\n"
+"\t       [-t tile] [-v factor ] runfile\n"
 "\t" PROGNAME " --help\n"
 "\t" PROGNAME " --licence\n"
 "\t" PROGNAME " --license\n"
@@ -111,6 +163,14 @@ void fprint_help( FILE * fp){
 "-i, --intensities filename [default: none]\n"
 "\tWrite the processed intensities generated to \"filename\".\n"
 "\n"
+"-j, --jumble range:a:b [default: none]\n"
+"\tJumble generated intensities with those of other reads, simulating cases\n"
+"where clusters have merged.\n"
+"A random read is picked from the <range> reads after each each and their\n"
+"intensities mixed to final intensities for analysis. Mixing is according to a\n"
+"Kumaraswamy distribution with parameters a and b, a being the shape parameter\n"
+"for the current read and b that for the randomly picked read.\n"
+"\n"
 "-l, --lane lane [default: as runfile]\n"
 "\tSet lane number\n"
 "\n"
@@ -157,6 +217,7 @@ static struct option longopts[] = {
     { "describe",   no_argument,       NULL, 'd' },
     { "filter",     required_argument, NULL, 'f' },
     { "intensities", required_argument, NULL, 'i'},
+    { "jumble",     required_argument, NULL, 'j' },
     { "lane",       required_argument, NULL, 'l' },
     { "mutate",     required_argument, NULL, 'm' },
     { "ncycle",     required_argument, NULL, 'n' },
@@ -218,6 +279,9 @@ typedef struct {
     enum outformat format;
     bool mutate;
     real_t ins,del,mut;
+    bool jumble;
+    uint32_t bufflen;
+    real_t a,b;
     ARRAY(NUC) adapter;
 } * SIMOPT;
 
@@ -244,6 +308,8 @@ SIMOPT new_SIMOPT(void){
     opt->format = OUTPUT_LIKE;
     opt->mutate = false;
     opt->ins=0.; opt->del=0.; opt->mut=0.;
+    opt->jumble = false;
+    opt->bufflen = 1; opt->a=0.; opt->b=0;
     opt->adapter = nucs_from_string(ILLUMINA_ADAPTER);
     
     return opt;
@@ -251,6 +317,8 @@ SIMOPT new_SIMOPT(void){
 
 void free_SIMOPT(SIMOPT opt){
     validate(NULL!=opt,);
+    free(opt->intensity_fn);
+    free_ARRAY(NUC)(opt->adapter);
     safe_free(opt);
 }
 
@@ -286,8 +354,11 @@ void show_SIMOPT (FILE * fp, const SIMOPT simopt){
        fputs("No purity filtering.\n",fp);
     }
 
-    if(simopt->ins!=0. && simopt->del!=0. && simopt->mut!=0.){
+    if(simopt->mutate){
         fprintf(fp,"Input sequence will be mutated with ins %f, del %f, mut %f\n",simopt->ins,simopt->del,simopt->mut);
+    }
+    if(simopt->jumble){
+        fprintf(fp,"Intensities will be jumbled with shape parameters %f , %f (range %u)\n",simopt->a,simopt->b,simopt->bufflen);
     }
 
     fputs("Reads will be padded with adapter sequence if necessary.\n",fp);
@@ -305,7 +376,7 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
     SIMOPT simopt = new_SIMOPT();
     validate(NULL!=simopt,NULL);
     
-    while ((ch = getopt_long(argc, argv, "a:b:c:df:i:l:m:n:o:pq:r:s:t:uv:h", longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "a:b:c:df:i:j:l:m:n:o:pq:r:s:t:uv:h", longopts, NULL)) != -1){
         int ret;
         unsigned long int i=0,j=0;
         switch(ch){
@@ -331,6 +402,16 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
                     }
                     break;
         case 'i':   simopt->intensity_fn = copy_CSTRING(optarg);
+                    break;
+                case 'j':   ret = sscanf(optarg, "%u:" real_format_str ":" real_format_str, &simopt->bufflen,&simopt->a, &simopt->b);
+                    if( ret!=3 ){ errx(EXIT_FAILURE,"Insufficient arguments for jumbling.");}
+                    if(0==simopt->bufflen){
+                        errx(EXIT_FAILURE,"Range for jumbling must be positive");
+                    }
+                    if(0==simopt->a || 0==simopt->b){
+                        errx(EXIT_FAILURE,"Jumbling not defined when shape parameters are zero.");
+                    }
+                    simopt->jumble = true;
                     break;
         case 'l':   simopt->lane = parse_uint(optarg);
                     if(simopt->lane==0){errx(EXIT_FAILURE,"Lane number must be greater than zero.");}
@@ -419,6 +500,128 @@ static inline real_t prop_lower( const real_t p, const uint32_t n){
 }
 
 
+void output_results(FILE * intout, const SIMOPT simopt, const char * seqname, const uint32_t x, const uint32_t y, const CALLED called1, const CALLED called2){
+    // Output raw intensities if required
+    if(NULL!=intout){
+        fprintf(intout,"%u\t%u\t%u\t%u",simopt->lane,simopt->tile,x,y);
+        fprint_intensities(intout,"",called1->intensities,false);
+        if(NULL!=called2){fprint_intensities(intout,"",called2->intensities,false);}
+        fputc('\n',intout);
+    }
+
+    // Output in format requested
+    switch(simopt->format){
+       case OUTPUT_LIKE:
+           fprintf(stdout,"%u\t%u\t%u\t%u",simopt->lane,simopt->tile,x,y);
+           if(called1->pass_filter){
+                fprint_intensities(stdout,"",called1->loglike,false);
+                if(simopt->paired){fprint_intensities(stdout,"",called2->loglike,false);}
+           }
+           break;
+       case OUTPUT_FASTA:
+           fprintf(stdout,">%s\n",seqname);
+           if(called1->pass_filter){
+               show_ARRAY(NUC)(stdout,called1->calls,"",0);
+               if(simopt->paired){ show_ARRAY(NUC)(stdout,called2->calls,"",0);}
+           } else {
+               show_ARRAY(NUC)(stdout,ambigseq,"",0);
+           }
+           break;
+       case OUTPUT_FASTQ:
+           fprintf(stdout,"@%s\n",seqname);
+           if(called1->pass_filter){
+               show_ARRAY(NUC)(stdout,called1->calls,"",0);
+               if(simopt->paired){ show_ARRAY(NUC)(stdout,called2->calls,"",0);}
+           } else {
+               show_ARRAY(NUC)(stdout,ambigseq,"",0);
+           }
+           fputs("\n+\n",stdout);
+           if(called1->pass_filter){
+               show_ARRAY(PHREDCHAR)(stdout,called1->quals,"",0);
+               if(simopt->paired){ show_ARRAY(PHREDCHAR)(stdout,called2->quals,"",0);}
+           } else {
+               show_ARRAY(PHREDCHAR)(stdout,ambigphred,"",0);
+           }
+           break;
+       default:
+           errx(EXIT_FAILURE,"Unrecognised format in %s (%s:%d)",__func__,__FILE__,__LINE__);
+    }
+
+    fputc('\n',stdout);
+}
+
+struct pair_double { double x1,x2;};
+
+struct pair_double correlated_weibulls(const real_t threshold, const real_t corr, const real_t shape, const real_t scale){
+    // Pick lambda using Gaussian Copula
+    real_t lambda1=NAN,lambda2=NAN;
+    real_t px=0.0,py=0.0;
+    do{
+        // Two correlated Gaussians
+        real_t x = rstdnorm();
+        real_t y = corr*x + sqrt(1-corr*corr) * rstdnorm();
+        // Convert to uniform deviates (the copula)
+        px = pstdnorm(x,false,false);
+        py = pstdnorm(y,false,false);
+    } while(px<threshold || py<threshold);
+    // Convert to Weibull via inversion formula
+    lambda1 = qweibull(px,shape,scale,false,false);
+    lambda2 = qweibull(py,shape,scale,false,false);
+    return (struct pair_double){lambda1,lambda2};
+}
+
+
+MAT mix_intensities(const MAT int1, const MAT int2, const real_t prop){
+    if(NULL==int1 || NULL==int2){ return NULL;}
+    validate(int1->nrow==int2->nrow && int1->ncol==int2->ncol,NULL);
+    validate(isprob(prop),NULL);
+
+    MAT intmix = new_MAT(int1->nrow,int1->ncol);
+    if(NULL==intmix){ return NULL;}
+    
+    const uint32_t nelt = int1->nrow * int1->ncol;
+    for ( uint32_t i=0 ; i<nelt ; i++){
+        intmix->x[i] = int2->x[i] + prop * (int1->x[i]-int2->x[i]);
+    }
+    return intmix;
+}
+
+MAT random_mix_intensities(const MAT int1, const MAT int2, const real_t shape1, const real_t shape2){
+    if(NULL==int1 || NULL==int2){ return NULL;}
+    real_t prop = rkumaraswamy(shape1,shape2);
+    return mix_intensities(int1,int2,prop);
+}
+
+    
+CALLED process_intensities( const MAT intensities, const real_t lambda, const MAT * invchol, const SIMOPT simopt){
+    CALLED cl = calloc(1,sizeof(*cl));
+    if(NULL==cl){ return NULL;}
+    cl->intensities = intensities;
+    cl->loglike = likelihood_cycle_intensities(simopt->sdfact,simopt->mu,lambda,intensities,invchol,NULL);
+    cl->calls = call_by_maximum_likelihood(cl->loglike,cl->calls);
+    cl->quals = quality_from_likelihood(cl->loglike,cl->calls,cl->quals);
+    cl->pass_filter = number_inpure_cycles(intensities,simopt->purity_threshold,simopt->purity_cycles) <= simopt->purity_max;
+    return cl;
+}
+
+void free_CALLED(CALLED called){
+    if(NULL==called){ return;}
+    free_MAT(called->loglike);
+    free_MAT(called->intensities);
+    free_ARRAY(NUC)(called->calls);
+    free_ARRAY(PHREDCHAR)(called->quals);
+    free(called);
+}
+
+void update_error_counts(const ARRAY(NUC) calls, const ARRAY(NUC) seq, uint32_t * error, uint32_t * errorhist){
+    uint32_t ncycle = calls.nelt;
+    uint32_t nerr = 0;
+    for ( uint32_t i=0 ; i<ncycle ; i++){
+        if(calls.elt[i] != seq.elt[i]){ nerr++; error[i]++;}
+    }
+    errorhist[(nerr<6)?nerr:6]++;
+}
+
 int main( int argc, char * argv[] ){
     SIMOPT simopt = parse_arguments(argc,argv);
 
@@ -435,6 +638,8 @@ int main( int argc, char * argv[] ){
     if (NULL==model){
         errx(EXIT_FAILURE,"Failed to read runfile \"%s\"",argv[0]);
     }
+    argc--;
+    argv++;
     if( simopt->desc ){
         show_MODEL(stderr,model);
         return EXIT_SUCCESS;
@@ -494,11 +699,8 @@ int main( int argc, char * argv[] ){
     //show_MODEL(stderr,model);
 
     // Scan through fasta file
-    MAT intensities=NULL, intensities2=NULL, loglike=NULL, loglike2=NULL;
-    ARRAY(NUC) calls = null_ARRAY(NUC), calls2 = null_ARRAY(NUC);
-    ARRAY(PHREDCHAR) quals = null_ARRAY(PHREDCHAR), quals2 = null_ARRAY(PHREDCHAR);
     SEQ seq = NULL;
-    FILE * fp =  stdin; //fopen("test/test100_small.fa","r");
+    FILE * fp = (0==argc) ? stdin : fopen(argv[0],"r");
     uint32_t seq_count=0, unfiltered_count=0;
     // Memory for error counting
     uint32_t * error = calloc(model->ncycle,sizeof(uint32_t));
@@ -513,14 +715,15 @@ int main( int argc, char * argv[] ){
     
     // Create sequence of ambiguities for filtered calls
     const uint32_t lim = (model->paired)?(2*model->ncycle):model->ncycle;
-    ARRAY(NUC) ambigseq = new_ARRAY(NUC)(lim);
-    ARRAY(PHREDCHAR) ambigphred = new_ARRAY(PHREDCHAR)(lim);
+    ambigseq = new_ARRAY(NUC)(lim);
+    ambigphred = new_ARRAY(PHREDCHAR)(lim);
     for( uint32_t i=0 ; i<lim ; i++){
         ambigseq.elt[i] = NUC_AMBIG;
         ambigphred.elt[i] = '!';
     }
 
-
+    // Circular buffer for intensities. Size one if no buffer.
+    CIRCBUFF(SEQSTR) circbuff = new_circbuff_SEQSTR(simopt->bufflen);
     while ((seq=sequence_from_fasta(fp))!=NULL){
         //show_SEQ(stderr,seq);
         if(simopt->mutate){
@@ -529,116 +732,109 @@ int main( int argc, char * argv[] ){
             seq = mut;
         }
 
-        // Pick lambda using Gaussian Copula
-        real_t lambda1=NAN,lambda2=NAN;
-        {
-            real_t px=0.0,py=0.0;
-            do{
-               const real_t corr = simopt->corr;
-               // Two correlated Gaussians
-               real_t x = rstdnorm();
-               real_t y = corr*x + sqrt(1-corr*corr) * rstdnorm();
-               // Convert to uniform deviates (the copula)
-               px = pstdnorm(x,false,false);
-               py = pstdnorm(y,false,false);
-            } while(px<simopt->threshold || py<simopt->threshold);
-            // Convert to Weibull via inversion formula
-            lambda1 = qweibull(px,simopt->shape,simopt->scale,false,false);
-            lambda2 = qweibull(py,simopt->shape,simopt->scale,false,false);
+        SEQSTR seqstr = calloc(1,sizeof(*seqstr));
+        seqstr->name = copy_CSTRING(seq->name);
+        seqstr->seq = copy_ARRAY(NUC)(seq->seq);
+        seqstr->paired = model->paired;
+        free_SEQ(seq); seq=NULL;
+        // Pick copula
+        struct pair_double lambda = correlated_weibulls(simopt->threshold,simopt->corr,simopt->shape,simopt->scale);
+        seqstr->lambda1 = lambda.x1;
+        seqstr->lambda2 = lambda.x2;
+        // Generate intensities
+        seqstr->int1 = generate_pure_intensities(simopt->sdfact,lambda.x1,seqstr->seq,simopt->adapter,model->ncycle,model->chol1,NULL);
+        if ( model->paired ){
+            seqstr->rcseq = reverse_complement(seqstr->seq);
+            seqstr->int2 = generate_pure_intensities(simopt->sdfact,lambda.x2,seqstr->rcseq,simopt->adapter,model->ncycle,model->chol2,NULL);
         }
+        // Store in buffer
+        SEQSTR popped = push_circbuff_SEQSTR(circbuff,seqstr);
+        if( NULL!=popped ){
+            MAT intensities=NULL,intensities2=NULL;
+            CALLED called1=NULL, called2=NULL;
+
+            // Can only pop when buffer is full
+            if( simopt->jumble ){
+                real_t prop = rkumaraswamy(simopt->a,simopt->b);
+                uint32_t randelt = (uint32_t)(circbuff->maxelt*runif());
+                assert(randelt>=0 && randelt<circbuff->maxelt);
+                intensities  = mix_intensities(popped->int1,circbuff->elt[randelt]->int1,prop);
+                intensities2 = mix_intensities(popped->int2,circbuff->elt[randelt]->int2,prop);
+            } else {
+                intensities  = copy_MAT(popped->int1);
+                intensities2 = copy_MAT(popped->int2);
+            }
             
-        intensities = generate_pure_intensities(simopt->sdfact,lambda1,seq->seq,simopt->adapter,model->ncycle,model->chol1,intensities);
-        loglike = likelihood_cycle_intensities(simopt->sdfact,simopt->mu,lambda1,intensities,model->invchol1,loglike);
-        uint32_t x = (uint32_t)( 1794 * runif());
-        uint32_t y = (uint32_t)( 2048 * runif());
+            called1 = process_intensities(intensities,popped->lambda1,model->invchol1,simopt);
+            update_error_counts(called1->calls,popped->seq,error,errorhist);
+            
+            called2 = process_intensities(intensities2,popped->lambda2,model->invchol2,simopt);
+            update_error_counts(called2->calls,popped->rcseq,error2,errorhist2);
+            
+            if(called1->pass_filter){ unfiltered_count++;}
+            uint32_t x = (uint32_t)( 1794 * runif());
+            uint32_t y = (uint32_t)( 2048 * runif());
+            output_results(fpout,simopt,popped->name,x,y,called1,called2);
+            
+            free_CALLED(called1); called1=NULL; intensities=NULL;
+            free_CALLED(called2); called2=NULL; intensities2=NULL;
+            free_SEQSTR(popped);
 
-        if(NULL!=fpout){
-            fprintf(fpout,"%u\t%u\t%u\t%u",model->lane,model->tile,x,y);
-            fprint_intensities(fpout,"",intensities,false);
+            seq_count++;
+            if( (seq_count%1000)==0 ){ fprintf(stderr,"\rDone: %8u",seq_count); }        
         }
 
-        bool filtered = true;
-        if ( number_inpure_cycles(intensities,simopt->purity_threshold,simopt->purity_cycles) <= simopt->purity_max){
-            filtered = false;
-            calls = call_by_maximum_likelihood(loglike,calls);
-            uint32_t nerr = 0;
-            for ( uint32_t i=0 ; i<model->ncycle ; i++){
-                if(calls.elt[i] != seq->seq.elt[i]){ nerr++; error[i]++;}
-            }
-            errorhist[(nerr<6)?nerr:6]++;
-            quals = quality_from_likelihood(loglike,calls,quals);
-
-            if ( model->paired ){
-                ARRAY(NUC) rcseq = reverse_complement(seq->seq);
-                intensities2 = generate_pure_intensities(simopt->sdfact,lambda2,rcseq,simopt->adapter,model->ncycle,model->chol2,intensities2);
-                loglike2 = likelihood_cycle_intensities(simopt->sdfact,simopt->mu,lambda2,intensities2,model->invchol2,loglike2);
-                if(NULL!=fpout){ fprint_intensities(fpout,"",intensities2,false); }
-                calls2 = call_by_maximum_likelihood(loglike2,calls2);
-                uint32_t nerr=0;
-                for ( uint32_t i=0 ; i<model->ncycle ; i++){
-                    if(calls2.elt[i] != rcseq.elt[i]){ nerr++; error2[i]++;}
-                }
-                errorhist2[(nerr<6)?nerr:6]++;
-                quals2 = quality_from_likelihood(loglike2,calls2,quals2);
-                free_ARRAY(NUC)(rcseq);
-            }
-            unfiltered_count++;
-        }
-        
-        // Output in format requested
-        // Should probably factor out
-        switch(simopt->format){
-           case OUTPUT_LIKE:
-               fprintf(stdout,"%u\t%u\t%u\t%u",model->lane,model->tile,x,y);
-               if(!filtered){
-                    fprint_intensities(stdout,"",loglike,false);
-                    if(simopt->paired){fprint_intensities(stdout,"",loglike2,false);}
-               }
-               break;
-           case OUTPUT_FASTA:
-               fprintf(stdout,">%s\n",seq->name);
-               if(!filtered){
-                   show_ARRAY(NUC)(stdout,calls,"",0);
-                   if(simopt->paired){ show_ARRAY(NUC)(stdout,calls2,"",0);}
-               } else {
-                   show_ARRAY(NUC)(stdout,ambigseq,"",0);
-               }
-               break;
-           case OUTPUT_FASTQ:
-               fprintf(stdout,"@%s\n",seq->name);
-               if(!filtered){
-                   show_ARRAY(NUC)(stdout,calls,"",0);
-                   if(simopt->paired){ show_ARRAY(NUC)(stdout,calls2,"",0);}
-               } else {
-                   show_ARRAY(NUC)(stdout,ambigseq,"",0);
-               }
-               fputs("\n+\n",stdout);
-               if(!filtered){
-                   show_ARRAY(PHREDCHAR)(stdout,quals,"",0);
-                   if(simopt->paired){ show_ARRAY(PHREDCHAR)(stdout,quals2,"",0);}
-               } else {
-                   show_ARRAY(PHREDCHAR)(stdout,ambigphred,"",0);
-               }
-               break;
-           default:
-               errx(EXIT_FAILURE,"Unrecognised format in %s (%s:%d)",__func__,__FILE__,__LINE__);
-        }
-
-        fputc('\n',stdout);
-        if(NULL!=fpout){ fputc('\n',fpout); }
-        free_SEQ(seq);
-        seq_count++;
-        if( (seq_count%1000)==0 ){ fprintf(stderr,"\rDone: %8u",seq_count); }
     }
+    // Buffer still contains (upto) simopt->bufflen elements Output.
+    {
+        MAT intensities=NULL,intensities2=NULL;
+        CALLED called1=NULL, called2=NULL;
+        uint32_t maxelt = (circbuff->maxelt<circbuff->nseen)?circbuff->maxelt:circbuff->nseen;
+        uint32_t oldest = (circbuff->maxelt<circbuff->nseen)?(circbuff->nseen%circbuff->maxelt):0;
+        for ( uint32_t i=0 ; i<maxelt ; i++){
+            uint32_t idx = (i+oldest)%circbuff->maxelt;
+            SEQSTR popped = circbuff->elt[idx];
+            if( simopt->jumble ){
+                real_t prop = rkumaraswamy(simopt->a,simopt->b);
+                uint32_t randelt = idx;
+                do {
+                    randelt = (uint32_t)(maxelt*runif());
+                } while(randelt==idx);
+                assert(randelt>=0 && randelt<maxelt);
+                intensities  = mix_intensities(popped->int1,circbuff->elt[randelt]->int1,prop);
+                intensities2 = mix_intensities(popped->int2,circbuff->elt[randelt]->int2,prop);
+            } else {
+                intensities  = copy_MAT(popped->int1);
+                intensities2 = copy_MAT(popped->int2);
+            }
+
+            called1 = process_intensities(intensities,popped->lambda1,model->invchol1,simopt);
+            update_error_counts(called1->calls,popped->seq,error,errorhist);
+
+            called2 = process_intensities(intensities2,popped->lambda2,model->invchol2,simopt);
+            update_error_counts(called2->calls,popped->rcseq,error2,errorhist2);
+
+            if(called1->pass_filter){ unfiltered_count++;}
+            uint32_t x = (uint32_t)( 1794 * runif());
+            uint32_t y = (uint32_t)( 2048 * runif());
+            output_results(fpout,simopt,popped->name,x,y,called1,called2);
+
+            free_CALLED(called1); called1=NULL; intensities=NULL;
+            free_CALLED(called2); called2=NULL; intensities2=NULL;
+
+            seq_count++;
+            if( (seq_count%1000)==0 ){ fprintf(stderr,"\rDone: %8u",seq_count); }
+        }
+    }
+    // Empty and free buffer
+    for ( uint32_t i=0 ; i<circbuff->maxelt ; i++){
+        free_SEQSTR(circbuff->elt[i]);
+    }
+    free_circbuff_SEQSTR(circbuff);
+    
     fprintf(stderr,"\rFinished generating %8u sequences\n",seq_count);
     if(simopt->purity_cycles>0){ fprintf(stderr,"%8u sequences passed filter.\n",unfiltered_count);}
     if(NULL!=fpout){fclose(fpout);}
-    free_ARRAY(NUC)(calls2);
-    free_MAT(loglike2);
-    free_MAT(intensities2);
-    free_ARRAY(NUC)(calls);
-    free_MAT(loglike);
-    free_MAT(intensities);
     free_ARRAY(PHREDCHAR)(ambigphred);
     free_ARRAY(NUC)(ambigseq);
 
@@ -655,17 +851,18 @@ int main( int argc, char * argv[] ){
         }
     }
     fputc('\n',stderr);
+    free(error); free(error2);
     // Histograms
     fputs("Number of errors per read",stderr);
     for ( uint32_t i=0 ; i<6 ; i++){
         fprintf(stderr,"\n%2u: %7u %6.2f",i,errorhist[i],(100.0*errorhist[i])/unfiltered_count);
         if(simopt->paired){
-            fprintf(stderr,"\t %7u %6.2f",errorhist[i],(100.0*errorhist[i])/unfiltered_count);
+            fprintf(stderr,"\t %7u %6.2f",errorhist2[i],(100.0*errorhist2[i])/unfiltered_count);
         }
     }
     fprintf(stderr,"\n>5: %7u %6.2f",errorhist[6],(100.0*errorhist[6])/unfiltered_count);
     if(simopt->paired){
-        fprintf(stderr,"\t %7u %6.2f",errorhist[6],(100.0*errorhist[6])/unfiltered_count);
+        fprintf(stderr,"\t %7u %6.2f",errorhist2[6],(100.0*errorhist2[6])/unfiltered_count);
     }
     fputc('\n',stderr);
     free_MODEL(model);

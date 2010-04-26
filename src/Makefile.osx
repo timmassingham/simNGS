@@ -1,6 +1,6 @@
 CC = gcc
-CFLAGS = -Wall -O3 -funroll-loops -DNDEBUG -fomit-frame-pointer -std=gnu99 -msse2 
-#CFLAGS = -std=c99 -Wall -g -std=gnu99 -fstack-protector-all -D_FORTIFY_SOURCE=2
+#CFLAGS = -Wall -O3 -funroll-loops -DNDEBUG -fomit-frame-pointer -std=gnu99 -msse2 
+CFLAGS = -std=c99 -Wall -g -std=gnu99 -fstack-protector-all -D_FORTIFY_SOURCE=2
 #CFLAGS = -pg -std=gnu99 
 CFLAGSSFMT = -msse2 -DHAVE_SSE2 -O9 -finline-functions -fomit-frame-pointer \
 -DNDEBUG -fno-strict-aliasing --param max-inline-insns-single=1800 -std=c99
@@ -8,7 +8,7 @@ LD = ld
 LDFLAGS =  -lm -lc -lblas -llapack
 INCFLAGS = 
 DEFINES = -DUSEFLOAT -DHAS_REALLOCF -DUSE_BLAS
-objects =  sfmt.o matrix.o nuc.o intensities.o normal.o weibull.o sequence.o mystring.o main.o utility.o random.o
+objects =  sfmt.o matrix.o nuc.o intensities.o normal.o weibull.o sequence.o mystring.o main.o utility.o random.o kumaraswamy.o
 
 simNGS: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(LDFLAGS) $(objects)
