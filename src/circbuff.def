@@ -1,0 +1,60 @@
+#ifndef _CIRCBUFF_GH
+#define _CIRCBUFF_GH
+
+    #define CIRCBUFF(A)     struct _circbuff_ ## A *
+#endif
+
+#if !defined(X)
+#error Necessary "X" macro not defined.
+#endif
+
+struct X(_circbuff_) {
+	X() * elt;
+	uint32_t nseen;
+	uint32_t maxelt;
+};
+
+static struct X(_circbuff_) * X(new_circbuff_) ( uint32_t maxelt){
+	struct X(_circbuff_) * circbuff = calloc(1,sizeof(*circbuff));
+	circbuff->nseen = 0;
+	circbuff->elt = calloc(maxelt,sizeof(*circbuff->elt));
+	if(NULL!=circbuff->elt){
+	    circbuff->maxelt = maxelt;
+	    circbuff->nseen = 0;
+	}
+	
+	return circbuff;
+}
+
+static void X(free_circbuff_)( struct X(_circbuff_) * cb ){
+    safe_free(cb->elt);
+    safe_free(cb);
+}
+
+static struct X(_circbuff_) * X(copy_circbuff_)( const struct X(_circbuff_) * cb){
+    struct X(_circbuff_) * cb2 = X(new_circbuff_)(cb->maxelt);
+    if(NULL==cb2->elt){ return cb2;}
+    memcpy(cb2->elt,cb->elt,cb->maxelt*sizeof(*cb->elt));
+    return cb2;
+}
+
+static void X(show_circbuff_)( FILE * fp, const struct X(_circbuff_) * cb, const uint32_t nelt){
+    if(NULL==fp){ return;}
+    if(NULL==cb->elt){ return;}
+    const uint32_t melt = (nelt<cb->maxelt) ? nelt : cb->maxelt;
+    const uint32_t oldest = (cb->nseen<cb->maxelt) ? 0 : (cb->nseen%cb->maxelt);
+    fprintf(fp,"Circular buffer of size %u. Seen %u elements (oldest is %u)\n",cb->maxelt,cb->nseen,oldest);
+    for( uint32_t i=0; i<melt ; i++){
+        uint32_t idx=(i+oldest)%cb->maxelt;
+        X(show_)(fp,cb->elt[idx]);
+    }
+}
+
+static X() X(push_circbuff_)(struct X(_circbuff_) * cb, X() newelt){
+    uint32_t idx = cb->nseen%cb->maxelt;
+    X() pop = cb->elt[idx];
+    cb->elt[idx] = newelt;
+    cb->nseen++;
+    return pop;
+}
+
