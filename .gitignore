@@ -1,5 +1,7 @@
 archive
 test
+bin
+.gitignore
 *~
 \#*\#
 *.o
