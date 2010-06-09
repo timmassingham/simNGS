@@ -32,14 +32,14 @@
 #define DEFAULT_COV         0.055
 #define DEFAULT_INSERT      400
 #define DEFAULT_NCYCLE      45
-#define DEFAULT_COVERAGE    2
+#define DEFAULT_COVERAGE    2.0
 #define DEFAULT_BIAS        0.5
 #define PROGNAME "simLibrary"
 #define PROGVERSION "1.0"
 
-uint32_t nfragment_from_coverage(const uint32_t genlen, const uint32_t coverage, const uint32_t readlen, const bool paired){
+uint32_t nfragment_from_coverage(const uint32_t genlen, const real_t coverage, const uint32_t readlen, const bool paired){
     const uint32_t bases_per_read = paired?(2*readlen):readlen;
-    return (genlen*coverage)/bases_per_read;
+    return (uint32_t)(0.5+(genlen*coverage)/bases_per_read);
 }
 
 CSTRING fragname(const CSTRING name,const char strand, const uint32_t loc, const uint32_t sublen){
@@ -153,10 +153,10 @@ static struct option longopts[] = {
 };
 
 typedef struct {
-    uint32_t insertlen, ncycle, coverage,nfragment;
+    uint32_t insertlen, ncycle, nfragment;
     bool paired;
     uint32_t seed;
-    real_t variance,cov,strand_bias;
+    real_t variance,cov,strand_bias,coverage;
 } * OPT;
 
 OPT new_OPT(void){
@@ -239,7 +239,7 @@ OPT parse_options(const int argc, char * const argv[] ){
             if(opt->variance<0.0){errx(EXIT_FAILURE,"Variance of insert size should be non-zero");}
             break;
         case 'x':
-            opt->coverage = parse_uint(optarg);
+            opt->coverage = parse_real(optarg);
             if(0==opt->coverage){errx(EXIT_FAILURE,"Coverage should be strictly positive");}
             break;
         case 'h':
