@@ -157,7 +157,7 @@ CSTRING read_CSTRING(FILE *fp){
     size_t len = 0;
     char * ln = NULL;
     #ifdef  _GNU_SOURCE
-    getline(&ln,&len,fp);
+    len = getline(&ln,&len,fp);
     #else
     ln = fgetln(fp,&len);
     #endif
