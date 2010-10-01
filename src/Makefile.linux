@@ -20,10 +20,15 @@ simNGS: $(objects)
 	g77 -O3 -o $@ -c $<
 
 clean:
-	rm -f ../bin/* *~ *.o  *.obj  *.exe *.lib  && cd SFMT-src-1.3 && make clean
+	rm -f ../bin/* *~ *.o  *.obj  *.exe *.lib ../man/simNGS.1 && cd SFMT-src-1.3 && make clean
 
 sfmt.o: 
 	gcc -o sfmt.o $(CFLAGSSFMT) -DMEXP=19937 -ISFMT-src-1.3/ -c SFMT-src-1.3/SFMT.c
 
-archive: clean
+man: ../man/simNGS.1
+
+../man/simNGS.1: ../man/simNGS.1.txt
+	cd ../man/ && a2x -d manpage -f manpage simNGS.1.txt
+
+archive: clean man
 	cd ../.. && tar zcf simNGS.tgz --exclude=.git --exclude=archive --exclude=test --exclude=runfiles simNGS

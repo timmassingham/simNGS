@@ -1,0 +1,191 @@
+simNGS(1)
+=========
+
+
+NAME
+----
+simNGS - simulate observations and likelihoods as if from the 
+Illumina platform
+
+SYNOPSIS
+--------
+*simNGS*  [-a adapter] [-b shape:scale] [-c correlation] [-d]
+          [-f nimpure:ncycle:threshold] [-i filename] [-j range:a:b]
+          [-l lane] [-m insertion:deletion:mutation] [-n ncycle]
+          [-o output_format] [-p] [-q quantile] [-r mu] [-s seed]
+          [-t tile] [-v factor ] runfile
+
+
+*simNGS* --help
+
+*simNGS* --licence
+
+*simNGS* --license
+
+*simNGS* --version
+
+DESCRIPTION
+-----------
+Wibble
+
+OPTIONS
+-------
+*-a, --adapter* sequence [default: AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGAT ]::
+        Sequence to pad reads with if they are shorter than the number
+of cycles required, reflecting the adpater sequence used for sample
+preparaton. A null adapter (i.e. pad with ambiguity characters) can be
+specified by -a ""
+
+*-b, --brightness* shape,scale [default: as runfile]::
+Set parameters for the distribution of cluster brightness. The cluster 
+brightness represents the combination of the incident intensity of the 
+laser on the each cluster and the number of fluropores emitting 
+(roughly the size of the cluster). The distribution of brightness is 
+modelled as a Weibull distribution with given shape and scale, real 
+valued numbers greater than zero, with mean and variance:
+
+        Mean:      scale \Gamma( 1 + 1/shape)
+
+        Variance:  scale^2 \Gamma( 1 + 2/shape ) - mean^2
+
+where \Gamma is the Gamma function.
+
+*-c, --correlation* [default: 1.0]::
+Correlation between brightness of one end of a paired-end run and the
+other. Correlation is implemented using a Gaussian copula, the marginal
+distributions being Weibull with parameters specified in the runfile or
+on the commandline, so its value should belong to [-1,1].
+
+*-d, --describe*::
+        Print a description of the runfile and exit.
+
+*-f, --filter* nimpure:ncycle:threshold [default: no filtering]::
+        Use purity filtering on generated intensities, allowing a 
+maximum of nimpure cyles in the first ncycles with a purity greater 
+than threshold. If the greatest intensity at a cycle is M and the 
+second greatest is N then the purity is M / (M+N).
+
+*-i, --intensities* filename [default: none]::
+        Write (processed) intensities to "filename" in a format 
+identical to that as the likelihoods but with each likelihood replaced 
+by its corresponding intensity.
+
+*-j, --jumble* range:a:b [default: none]::
+    Jumble generated intensities with those of other reads, simulating
+cases where clusters have merged.
+A random read is picked from the <range> reads after each each and 
+their intensities mixed to final intensities for analysis. Mixing is 
+according to a Kumaraswamy distribution with parameters a and b, a 
+being the shape parameter for the current read and b that for the 
+randomly picked read. When the final read is inputed, all reads in the 
+last <range> are mixed with each other; if there where less than 
+<range> reads in inputed in total, all reads are mixed together.
+
+*-l, --lane* lane [default: as runfile]::
+        Set lane number in the output to "lane". Lane number must be 
+greater than zero but need not be a number valid for a real machine.
+
+*-m, --mutate* insertion:deletion:mutation [default: no mutation]::
+        Simple model of sequence mutation to reflect sample preparation
+errors.  Each sequence read in is transformed by a simple automata 
+which walks the input sequence and deletes or mutates bases with the 
+specified probabilities.  Inserts are chosen uniformly from ACGT, 
+mutations are chosen uniformly from the bases different from that 
+present in the original sequence.
+
+*-n, --ncycle* ncycle [default: as runfile]::
+        Number of cycles to generate likelihoods for, up to maximum 
+allowed in the runfile. If more cycles are asked for than allowed, a 
+warning is printed and the number of cycles outputted is restricted to 
+number specificed in the runfile.
+
+*-o, --output* format [default: likelihood]::
+        Format in which to output results. Either "likelihood", 
+"fasta" or "fastq". "likelihood" is the format specified in the file 
+README.txt, containing the likelihoods of all possible base-calls. 
+"fasta" gives the called sequences in FASTA format, paired-end reads 
+being concatenated together.
+Similar "fastq" outputs sequences and qualities in fastq format; 
+unless over-ridden setting the output format to "fastq" sets mu to 
+1e-5 to better calibrate the qualities for polymerase error. 
+See *--robust* for details.
+
+*-p, --paired*::
+        Treat run as paired-end. For single-ended runs treated as 
+paired, the covariance matrix is duplicated to make two uncorrelated 
+pairs with identical error characteristics. For paired-end runs 
+treated as single, the second end is ignored. The covariance matrices 
+for the ends of a paired-end run were estimated and stored separately, 
+implying an assumption of independence between the two ends. The 
+brightness of the cluster is assumed to be equal for both ends, which 
+can be changed using the *--correlation* option.
+
+*-q, --quantile* quantile [default: 0]::
+        Quantile below which cluster brightness is discarded and 
+redrawn from distribution. If the brightness of either end of the read 
+is in the lower "quantile" quantile of the brightness distribution, 
+then discard the values and redraw. Very dim clusters would be lost in 
+the image analysis of an actual run and never found.
+
+*-r, --robust* mu [default: 0.]::
+        Output robustified likelihood, equivalent to adding mu to the
+likelihood of every call. "mu" should be a real number greater than 
+zero. The default for simNGS is to produce raw likelihoods so errors 
+outside the scope of the base calling can be modelled elsewhere; the 
+default for the AYB base calling software uses a value of 1e-5 to 
+compensate for unmodelled effects like "dust" on the slide or sample 
+preparation errors.
+
+The consequences of adding a "mu" is to bound the maximum possible 
+likelihood-ratio statistic, and so the quality of the call, and to 
+pull extremely small likelihoods where the statistical model does fit 
+the observation for any possible base call back towards equi-probable. 
+The theory behind this is consider the observation to be a mixture of 
+the model and small proportion of contaminant, then define the 
+robustified likelihood to be the supremum over all possible 
+contaminants (i.e. allow the contaminant to be the worst possible).
+
+*-s, --seed* seed [default: clock]::
+        Seed used to set random number generator. Where no seed is 
+given, it is initialised from the clock of the machine and written to 
+stderr. Care should be taken if multiple jobs are started 
+simultaneously, on a farm with synchronised clocks for example, and an 
+explicit seed is not set.
+
+*-t, --tile* tile [default: as runfile]::
+        Set tile number in the output to "tile". Tile number must be 
+greater than zero but need not be a number valid for a real machine.
+
+*-v, --variance* factor [default: 1.0]::
+        Factor with which to scale variance matrix by and so increase 
+or decrease the amount of background noise generated. Multiplying the 
+variance by a factor f is mathematically equivalent to multiplying the 
+scale of the brightness distribution by 1/sqrt(f).
+
+
+BUGS
+----
+Cluster coordinates are randomly generated according to a uniform
+distribution on the x and y axes and so may coincide. The output
+may break other software that relies on the coordinates to produce
+a unique identifier for each cluster.
+
+The jumble option does not locality into account when mixing
+clusters, so distant clusters are as likely to be mixed as nearby
+ones. In reality, the mixing process is highly localised.
+
+AUTHOR
+------
+Written by Tim Massingham, <tim.massingham@ebi.ac.uk>
+
+RESOURCES
+---------
+See <http://www.ebi.ac.uk/~timm/simNGS/>
+
+COPYING
+-------
+Copyright (C) 2010 European Bioinformatics Institute. Free use of this 
+software is granted under the terms of the GNU General Public License 
+(GPL). See the file *COPYING* in the simNGS distribution or  
+<http://www.gnu.org/licenses/gpl.html> for details.
+
