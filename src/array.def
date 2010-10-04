@@ -25,24 +25,24 @@ struct X(_array_) {
 	uint32_t nelt;
 };
 
-static struct X(_array_) X(new_array_) ( uint32_t nelt){
+static struct X(_array_) __attribute__((used)) X(new_array_) ( uint32_t nelt){
 	struct X(_array_) arry = {0,0};
 	arry.elt = calloc(nelt,sizeof(*arry.elt));
 	if(NULL!=arry.elt){ arry.nelt = nelt;}
 	return arry;
 }
 
-static struct X(_array_) X(resize_array_)( struct X(_array_) arry, const uint32_t newlen ){
+static struct X(_array_) __attribute__((used)) X(resize_array_)( struct X(_array_) arry, const uint32_t newlen ){
     arry.elt = reallocf(arry.elt,newlen*sizeof(*arry.elt));
     arry.nelt = (NULL!=arry.elt)?newlen:0;
     return arry;
 }
 
-static void X(free_array_) ( struct X(_array_) arry ){
+static void __attribute__((used)) X(free_array_) ( struct X(_array_) arry ){
 	safe_free(arry.elt);
 }
 
-static struct X(_array_) X(copy_array_) ( const struct X(_array_) array ){
+static struct X(_array_) __attribute__((used)) X(copy_array_) ( const struct X(_array_) array ){
 	struct X(_array_) new_array = {0,0};
 	new_array.elt = calloc(array.nelt,sizeof(*new_array.elt));
 	if(NULL==new_array.elt){ return new_array; }
@@ -52,7 +52,7 @@ static struct X(_array_) X(copy_array_) ( const struct X(_array_) array ){
 }
 
 // Note: melt special value for printing all
-static void X(show_array_) ( FILE * fp, const struct X(_array_) array, const char * sep, const uint32_t melt ){
+static void __attribute__((used)) X(show_array_) ( FILE * fp, const struct X(_array_) array, const char * sep, const uint32_t melt ){
 	validate(NULL!=fp,);
 	validate(array.nelt>0,);
 
@@ -65,7 +65,7 @@ static void X(show_array_) ( FILE * fp, const struct X(_array_) array, const cha
 	if( ub!=array.nelt ){ fprintf(fp," ... %u more",array.nelt-ub);}
 }
 
-static struct X(_array_) X(read_array_)( FILE * fp, const uint32_t nelt){
+static struct X(_array_) __attribute__((used)) X(read_array_)( FILE * fp, const uint32_t nelt){
 	struct X(_array_) ary = X(new_array_)(nelt);
 	validate(NULL!=ary.elt,ary);
 	for ( uint32_t i=0 ; i<nelt ; i++){

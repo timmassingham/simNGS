@@ -68,7 +68,7 @@ bool isprob( const real_t p);
 #include <time.h>
 #endif
 
-static void timestamp(const char * str, FILE * fp){
+static void __attribute__((used)) timestamp(const char * str, FILE * fp){
     time_t t = time(&t);
     char * c = ctime(&t);
     c[24]='\t';

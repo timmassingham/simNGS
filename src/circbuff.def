@@ -14,7 +14,7 @@ struct X(_circbuff_) {
 	uint32_t maxelt;
 };
 
-static struct X(_circbuff_) * X(new_circbuff_) ( uint32_t maxelt){
+static struct X(_circbuff_) * __attribute__((used)) X(new_circbuff_) ( uint32_t maxelt){
 	struct X(_circbuff_) * circbuff = calloc(1,sizeof(*circbuff));
 	circbuff->nseen = 0;
 	circbuff->elt = calloc(maxelt,sizeof(*circbuff->elt));
@@ -26,19 +26,19 @@ static struct X(_circbuff_) * X(new_circbuff_) ( uint32_t maxelt){
 	return circbuff;
 }
 
-static void X(free_circbuff_)( struct X(_circbuff_) * cb ){
+static void __attribute__((used)) X(free_circbuff_)( struct X(_circbuff_) * cb ){
     safe_free(cb->elt);
     safe_free(cb);
 }
 
-static struct X(_circbuff_) * X(copy_circbuff_)( const struct X(_circbuff_) * cb){
+static struct X(_circbuff_) * __attribute__((used)) X(copy_circbuff_)( const struct X(_circbuff_) * cb){
     struct X(_circbuff_) * cb2 = X(new_circbuff_)(cb->maxelt);
     if(NULL==cb2->elt){ return cb2;}
     memcpy(cb2->elt,cb->elt,cb->maxelt*sizeof(*cb->elt));
     return cb2;
 }
 
-static void X(show_circbuff_)( FILE * fp, const struct X(_circbuff_) * cb, const uint32_t nelt){
+static void __attribute__((used)) X(show_circbuff_)( FILE * fp, const struct X(_circbuff_) * cb, const uint32_t nelt){
     if(NULL==fp){ return;}
     if(NULL==cb->elt){ return;}
     const uint32_t melt = (nelt<cb->maxelt) ? nelt : cb->maxelt;
@@ -50,7 +50,7 @@ static void X(show_circbuff_)( FILE * fp, const struct X(_circbuff_) * cb, const
     }
 }
 
-static X() X(push_circbuff_)(struct X(_circbuff_) * cb, X() newelt){
+static X() __attribute__((used)) X(push_circbuff_)(struct X(_circbuff_) * cb, X() newelt){
     uint32_t idx = cb->nseen%cb->maxelt;
     X() pop = cb->elt[idx];
     cb->elt[idx] = newelt;
