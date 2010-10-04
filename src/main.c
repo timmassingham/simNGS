@@ -231,7 +231,8 @@ static struct option longopts[] = {
     { "help",       no_argument,       NULL, 'h' },
     { "licence",    no_argument,       NULL, 0 },
     { "license",    no_argument,       NULL, 0 },
-    { "version",    no_argument,       NULL, 1 }
+    { "version",    no_argument,       NULL, 1 },
+    { NULL, 0, NULL, 0}
 };
 
 bool parse_bool( const CSTRING str){
