@@ -5,7 +5,7 @@ simNGS(1)
 NAME
 ----
 simNGS - simulate observations and likelihoods as if from the 
-Illumina platform
+Illumina sequencing platform
 
 SYNOPSIS
 --------
@@ -26,10 +26,31 @@ SYNOPSIS
 
 DESCRIPTION
 -----------
-Wibble
+simNGS is software for simulating "perfect" observations from Illumina
+sequencing machines using the statistical models behind the AYB base-calling
+software. Observations are perfect in the sense that they are generated
+according the model and do not incorporate any additional effects that may be
+present in real data ("dust", bubbles, merged clusters, sequence-heterogeneous
+clusters, etc).
 
-OPTIONS
--------
+simNGS takes fasta format sequences and a file describing the covariance
+of noise between bases and cycles observed in an actual run of the machine,
+randomly generates noisy intensities representing the signals for the sequence 
+at each cycle and calculates likelihoods for all possible base calls.
+
+Sequences are read from stdin and results are written to stdout in the
+format specified by the -o, --output flag. Messages, progress indicators
+and a summary of errors in the generated data are written to stderr.
+
+Ambiguous characters are interpretated as "no base present" and 
+treated as a null call: the intensities generated are just noise and do not
+have an additional component from the sequence, leading to a less bright 
+cluster. Artifacts such as bubbles and registration errors could be simulated
+by placing ambiguity characters in the sequence. Where the sequence to be
+called is shorter than the expected read length, either because the input
+was too short or deletion from the mutation model have shortened it, the
+sequence is padded with ambiguity characters for the remaining cycles.
+
 *-a, --adapter* sequence [default: AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGAT ]::
         Sequence to pad reads with if they are shorter than the number
 of cycles required, reflecting the adpater sequence used for sample
@@ -162,9 +183,16 @@ or decrease the amount of background noise generated. Multiplying the
 variance by a factor f is mathematically equivalent to multiplying the 
 scale of the brightness distribution by 1/sqrt(f).
 
+EXAMPLE
+-------
+Produces likelihoods for sequences in test100.fa and outputs to 
+test.like, treating the (single-ended) runfile "s_2_0005.runfile" as 
+paired-end.
 
-BUGS
-----
+cat test100.fa | simNGS -p data/s_2_0005.runfile  > test.like
+
+KNOWN BUGS
+----------
 Cluster coordinates are randomly generated according to a uniform
 distribution on the x and y axes and so may coincide. The output
 may break other software that relies on the coordinates to produce
@@ -178,6 +206,11 @@ AUTHOR
 ------
 Written by Tim Massingham, <tim.massingham@ebi.ac.uk>
 
+cifboot uses the optimised SFMT code for the Mersenne twister random
+number generator produced by Mutsuo Saito and Makoto Matsumotom, which
+is available from Hiroshima University under a three-clause BSD style
+licence.
+
 RESOURCES
 ---------
 See <http://www.ebi.ac.uk/~timm/simNGS/>
@@ -188,4 +221,10 @@ Copyright (C) 2010 European Bioinformatics Institute. Free use of this
 software is granted under the terms of the GNU General Public License 
 (GPL). See the file *COPYING* in the simNGS distribution or  
 <http://www.gnu.org/licenses/gpl.html> for details.
+
+The included SFMT library is copyright (C) 2006,2007 Mutsuo Saito,
+Makoto Matsumoto and Hiroshima University, and is distributed under a
+three-clause BSD style licence. Seee
+<http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/SFMT/>.
+
 
