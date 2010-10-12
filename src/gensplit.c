@@ -304,11 +304,18 @@ int main ( int argc, char * argv[]){
     
     FILE * fp = stdin;
     SEQ seq = NULL;
+    uint32_t skipped_seq = 0;
     while ((seq=sequence_from_fasta(fp))!=NULL){
         SEQ rcseq = reverse_complement_SEQ(seq);
         uint32_t nfragment = (opt->nfragment)?opt->nfragment:nfragment_from_coverage(seq->length,opt->coverage,opt->ncycle,opt->paired);
         for ( uint32_t i=0 ; i<nfragment ; i++){
             const uint32_t sublen = (uint32_t)(exp(rnorm(log_mean,log_sd)));
+            if(sublen>seq->length){
+                 if(0==skipped_seq){
+                     warnx("Length of fragment (2*readlen+insert) is greater than sequence length. Skipping");
+                 }
+                 skipped_seq++;
+            }
             const uint32_t loc = (uint32_t)((seq->length-sublen)*runif()); // Location is uniform
             char strand = (runif()<opt->strand_bias)?'+':'-';
 
@@ -323,6 +330,9 @@ int main ( int argc, char * argv[]){
         free_SEQ(rcseq);
         free_SEQ(seq);
         fprintf(stderr,"\rFinished %8u\n",nfragment);
+        if(skipped_seq>0){
+            fprintf(stderr,"Skipped %" SCNu32 " fragments.\n",skipped_seq);
+        }
     }
 
     
