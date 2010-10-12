@@ -9,7 +9,7 @@ LDFLAGS =  -lm -lc -lblas -llapack
 MANDIR = ../man
 INCFLAGS = 
 DEFINES = -DUSEFLOAT -D_GNU_SOURCE -DUSE_BLAS
-objects =  sfmt.o matrix.o nuc.o intensities.o normal.o weibull.o sequence.o mystring.o main.o utility.o random.o kumaraswamy.o
+objects =  sfmt.o matrix.o nuc.o intensities.o normal.o weibull.o sequence.o mystring.o simNGS.o utility.o random.o kumaraswamy.o
 
 all: simNGS simLibrary
 
