@@ -27,6 +27,8 @@
 #include "random.h"
 #include "normal.h"
 
+enum strand_opt { STRAND_RANDOM, STRAND_SAME, STRAND_OPPOSITE };
+
 #define Q_(A) #A
 #define QUOTE(A) Q_(A)
 #define DEFAULT_COV         0.055
@@ -57,7 +59,8 @@ void fprint_usage( FILE * fp){
 "\n"
 "Usage:\n"
 "\t" PROGNAME " [-b bias] [-c cov] [-f nfragment] [-i insertlen] -p\n"
-"\t         [-r readlen] [-s seed] [-v variance] [-x coverage]\n"
+"\t         [-r readlen] [-s strand] [-v variance] [-x coverage]\n"
+"\t         [--seed seed]\n"
 "\t" PROGNAME " --help\n"
 "\t" PROGNAME " --licence\n"
 "\t" PROGNAME " --version\n"
@@ -122,7 +125,11 @@ void fprint_help( FILE * fp){
 "\tRead length to sample. Affects the total length of fragments produced\n"
 "and the total number of fragments produced via the coverage.\n"
 "\n"
-"-s, --seed seed [default: clock]\n"
+"-s, --strand strand [default: random]\n"
+"\tStrand from which simulated reads are to come from, relative\n"
+"to current strand. Options are: opposite, random, same.\n"
+"\n"
+"--seed seed [default: clock]\n"
 "\tSet seed from random number generator.\n"
 "\n"
 "-v, --variance variance [default: from COV ]\n"
@@ -144,7 +151,8 @@ static struct option longopts[] = {
     { "insert",     required_argument, NULL, 'i'},
     { "paired",     no_argument,       NULL, 'p'},
     { "readlen",    required_argument, NULL, 'r'},
-    { "seed",       required_argument, NULL, 's'},
+    { "strand",     required_argument, NULL, 's'},
+    { "seed",       required_argument, NULL, 2 },
     { "variance",   required_argument, NULL, 'v'},
     { "coverage",   required_argument, NULL, 'x'},
     { "help",       no_argument,       NULL, 'h'},
@@ -157,6 +165,7 @@ typedef struct {
     bool paired;
     uint32_t seed;
     real_t variance,cov,strand_bias,coverage;
+    enum strand_opt strand;
 } * OPT;
 
 OPT new_OPT(void){
@@ -171,6 +180,7 @@ OPT new_OPT(void){
     opt->nfragment = 0;
     opt->paired = true;
     opt->strand_bias = DEFAULT_BIAS;
+    opt->strand = STRAND_RANDOM;
     return opt;
 }
 
@@ -232,6 +242,11 @@ OPT parse_options(const int argc, char * const argv[] ){
             opt->ncycle = parse_uint(optarg);
             break;
         case 's':
+            if(!strncasecmp(optarg,"same",4)){ opt->strand = STRAND_SAME; break;}
+            if(!strncasecmp(optarg,"opposite",8)){ opt->strand = STRAND_OPPOSITE; break;}
+            if(!strncasecmp(optarg,"random",6)){ opt->strand = STRAND_RANDOM; break;}
+            errx(EXIT_FAILURE,"Unrecognised choice of strand \"%s\"",optarg); break;
+        case 2:
             opt->seed = parse_uint(optarg);
             break;
         case 'v':
@@ -273,6 +288,13 @@ int main ( int argc, char * argv[]){
         opt->seed = seed;
     }
     init_gen_rand( opt->seed );
+
+    // Alter strand_bias if complete bias is required
+    switch(opt->strand){
+    case STRAND_SAME: opt->strand_bias = 1.0; break;
+    case STRAND_OPPOSITE: opt->strand_bias = 0.0; break;
+    default: break;
+    }
     
     real_t effectivelen = opt->insertlen + opt->ncycle + ((opt->paired)?opt->ncycle:0);
     real_t log_sd = (0==opt->variance)?
@@ -289,6 +311,7 @@ int main ( int argc, char * argv[]){
             const uint32_t sublen = (uint32_t)(exp(rnorm(log_mean,log_sd)));
             const uint32_t loc = (uint32_t)((seq->length-sublen)*runif()); // Location is uniform
             char strand = (runif()<opt->strand_bias)?'+':'-';
+
             SEQ sampseq = (strand=='+')?sub_SEQ(seq,loc,sublen):sub_SEQ(rcseq,loc,sublen);
             CSTRING sampname = fragname(seq->name,strand,loc,sublen);
             free_CSTRING(sampseq->name);
