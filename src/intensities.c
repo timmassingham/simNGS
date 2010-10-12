@@ -21,11 +21,13 @@
 
 #include <string.h>
 #include <tgmath.h>
+#include <stdint.h>
+#include <inttypes.h>
 #include "intensities.h"
 #include "nuc.h"
 #include "normal.h"
 
-MODEL new_MODEL(const char * label, const uint32_t lane, const uint32_t tile, const real_t shape, const real_t scale, const MAT cov1, const MAT cov2){
+MODEL new_MODEL(const char * label, const real_t shape, const real_t scale, const MAT cov1, const MAT cov2){
     validate(shape>0,NULL);
     validate(scale>0,NULL);
     validate(NULL!=cov1,NULL);
@@ -75,8 +77,6 @@ MODEL new_MODEL(const char * label, const uint32_t lane, const uint32_t tile, co
     
     model->shape = shape;
     model->scale = scale;
-    model->lane = lane;
-    model->tile = tile;
     
     return model;
     
@@ -112,8 +112,6 @@ MODEL copy_MODEL( const MODEL model){
     MODEL newmodel      = calloc(1,sizeof(*newmodel));
     newmodel->ncycle    = model->ncycle;
     newmodel->orig_ncycle = model->orig_ncycle;
-    newmodel->lane      = model->lane;
-    newmodel->tile      = model->tile;
     newmodel->shape     = model->shape;
     newmodel->scale     = model->scale;
     newmodel->paired    = model->paired;
@@ -157,7 +155,6 @@ void show_MODEL( FILE * fp, MODEL model){
     validate(NULL!=model,);
     if(NULL!=model->label){fputs(model->label,fp);}
     fprintf(fp,"Parameters for %u cycle model\n",model->ncycle);
-    fprintf(fp,"Lane %u, tile %u\n",model->lane,model->tile);
     fprintf(fp,"Brightness distribution:\n\tshape=%f\tscale=%f\n",model->shape,model->scale);
     const real_t bmean = model->scale * tgamma(1./model->shape) / model->shape;
     real_t bvar = model->scale*model->scale * 2.0 * tgamma(2./model->shape) / model->shape - bmean*bmean;
@@ -190,13 +187,12 @@ MODEL new_MODEL_from_fp( FILE * fp){
         free(ln);
         #endif
     }
-    unsigned int lane,tile;
-    fscanf(fp,"%u %u",&lane,&tile);
+    uint32_t ncycle=0;
     real_t shape=0.0, scale=0.0;
-    fscanf(fp,real_format_str real_format_str,&shape,&scale);
-    MAT cov1 = new_MAT_from_fp(fp);
-    MAT cov2 = new_MAT_from_fp(fp);
-    MODEL model = new_MODEL(label,lane,tile,shape,scale,cov1,cov2);
+    fscanf(fp, "%"SCNu32 real_format_str real_format_str,&ncycle,&shape,&scale);
+    MAT cov1 = new_MAT_from_fp(fp,ncycle*NBASE,ncycle*NBASE);
+    MAT cov2 = new_MAT_from_fp(fp,ncycle*NBASE,ncycle*NBASE);
+    MODEL model = new_MODEL(label,shape,scale,cov1,cov2);
     
     if(NULL!=cov2){free_MAT(cov2);};
     free_MAT(cov1);
@@ -213,7 +209,7 @@ MODEL trim_MODEL(const uint32_t ncycle, const MODEL model){
 	if(NULL==trimmedVar1){ goto cleanup; }
 	trimmedVar2 = copy_MAT(trim_MAT(model->cov2,NBASE*ncycle,NBASE*ncycle,true));
         if(NULL!=model->cov2 && NULL==trimmedVar2){ goto cleanup; }
-	newmod = new_MODEL(model->label,model->lane,model->tile,model->shape,model->scale,trimmedVar1,trimmedVar2);
+	newmod = new_MODEL(model->label,model->shape,model->scale,trimmedVar1,trimmedVar2);
 	if(NULL==newmod){goto cleanup;}
 
 	free_MAT(trimmedVar2);

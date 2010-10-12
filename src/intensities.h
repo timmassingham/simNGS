@@ -28,7 +28,6 @@
 
 typedef struct {
     uint32_t ncycle,orig_ncycle;
-    uint32_t lane,tile;
     bool paired;    // Was read paired?
     MAT cov1,cov2;  // Covariance
     MAT chol1,chol2;       // Cholesky factorisation of covariance
@@ -37,7 +36,7 @@ typedef struct {
     char * label;
 } * MODEL;
 
-MODEL new_MODEL(const char * label, const uint32_t lane, const uint32_t tile, const real_t shape, const real_t scale, const MAT cov1, const MAT cov2);
+MODEL new_MODEL(const char * label, const real_t shape, const real_t scale, const MAT cov1, const MAT cov2);
 void free_MODEL(MODEL model);
 MODEL copy_MODEL(const MODEL model);
 void show_MODEL(FILE * fp, const MODEL model);

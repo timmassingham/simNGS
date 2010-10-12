@@ -683,11 +683,6 @@ int main( int argc, char * argv[] ){
         }
     }
     simopt->ncycle = model->ncycle;
-    if(0!=simopt->lane){ model->lane = simopt->lane;}
-    if(0!=simopt->tile){ model->tile = simopt->tile;}
-    simopt->tile = model->tile;
-    simopt->lane = model->lane;
-
     
     // Initialise random number generator
     if ( simopt->seed==0 ){

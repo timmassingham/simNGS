@@ -49,8 +49,8 @@ MAT copyinto_MAT( MAT matout, const MAT matin);
 MAT new_MAT_from_array( const uint32_t nrow, const uint32_t ncol, const real_t * x);
 
 // Input, output
-MAT new_MAT_from_file( const char * filename );
-MAT new_MAT_from_fp(FILE * fp );
+MAT new_MAT_from_file( const char * filename, const uint32_t nrow, const uint32_t ncol );
+MAT new_MAT_from_fp(FILE * fp, const uint32_t nrow, const uint32_t ncol );
 void fprint_MAT( FILE * fp, const MAT mat);
 void show_MAT( FILE * fp, const MAT mat, const uint32_t mrow, const uint32_t mcol);
 

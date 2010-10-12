@@ -102,21 +102,18 @@ void free_MAT ( MAT mat ){
 /* Assumed number of rows is first, followed by number of columns.
  * Easily changed by switching nrow and ncol where indicated.
  */
-MAT new_MAT_from_fp (FILE * fp ){
+MAT new_MAT_from_fp (FILE * fp, const uint32_t nrow, const uint32_t ncol ){
     if ( NULL==fp){
         warn("Reading from NULL file handle at %s:%d\n",__FILE__,__LINE__);
     }
-    unsigned int ncol,nrow;
-    int ret = fscanf(fp,"%u %u",&nrow,&ncol); // Switch order of ncol and nrow here if wanted
-    if ( 2!=ret){ return NULL;}               // Failed to read rows and columns
     const unsigned int nelt = nrow*ncol;
     MAT mat = new_MAT(nrow,ncol);
     if ( NULL==mat){ return NULL;}
-    //skip_till_char(fp,'\n');
+
     for ( unsigned int elt=0 ; elt<nelt ; elt++){
         int elterr = fscanf(fp,real_format_str,&mat->x[elt]);
         if ( EOF==elterr){
-            warn("Too few elements in file. Expecting %u but only found %u.\n",nelt,elt);
+            if(0!=elt){warnx("Too few elements in file. Expecting %u but only found %u.",nelt,elt);}
             free_MAT(mat);
             mat = NULL;
             break;
@@ -130,7 +127,7 @@ MAT new_MAT_from_fp (FILE * fp ){
 /* Read matrix from a given file in the format specified in document (document
  * reference).
  */
-MAT new_MAT_from_file ( const char * filename ){
+MAT new_MAT_from_file ( const char * filename, const uint32_t nrow, const uint32_t ncol ){
     /* Open file.
      * If NULL is given as filename, assume stdin
      */
@@ -141,7 +138,7 @@ MAT new_MAT_from_file ( const char * filename ){
     }
     
     /* Read matrix */
-    MAT mat = new_MAT_from_fp ( fp );
+    MAT mat = new_MAT_from_fp ( fp, nrow, ncol );
     fclose(fp);
     
     return mat;
