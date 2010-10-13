@@ -261,20 +261,30 @@ SEQ sequence_from_file ( FILE * fp){
 
 SEQ reverse_complement_SEQ( const SEQ seq){
     ARRAY(NUC) rcnuc = null_ARRAY(NUC);
+    ARRAY(PHREDCHAR) revqual = null_ARRAY(PHREDCHAR);
     SEQ newseq = NULL;
     
     validate(NULL!=seq,NULL);
     newseq = copy_SEQ(seq);
     validate(NULL!=newseq,NULL);
+
     rcnuc = reverse_complement(seq->seq);
     if(NULL==rcnuc.elt){ goto cleanup;}
     free_ARRAY(NUC)(newseq->seq);
     newseq->seq = rcnuc;
+
+    if(NULL!=seq->qual.elt){
+        revqual = reverse_quality(seq->qual);
+        if(NULL==revqual.elt){ goto cleanup; }
+        free_ARRAY(PHREDCHAR)(newseq->qual);
+        newseq->qual = revqual;
+    }
     
     return newseq;
     
 cleanup:
     free_ARRAY(NUC)(rcnuc);
+    free_ARRAY(PHREDCHAR)(revqual);
     free_SEQ(newseq);
     return NULL;
 }

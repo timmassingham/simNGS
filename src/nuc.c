@@ -103,6 +103,16 @@ ARRAY(NUC) reverse_complement(const ARRAY(NUC) nucs){
     return new_nuc;
 }
 
+ARRAY(PHREDCHAR) reverse_quality(const ARRAY(PHREDCHAR) quals){
+    validate(NULL!=quals.elt,null_ARRAY(PHREDCHAR));
+    ARRAY(PHREDCHAR) new_qual = new_ARRAY(PHREDCHAR)(quals.nelt);
+    validate(NULL!=new_qual.elt,new_qual);
+    for ( uint32_t i=0 ; i<quals.nelt ; i++){
+        new_qual.elt[i] = quals.elt[quals.nelt-i-1];
+    }
+    return new_qual;
+}
+
 PHREDCHAR phredchar_from_char( const char c){
     validate(c>=MIN_PHRED,MIN_PHRED);
     validate(c<=MAX_PHRED,MAX_PHRED);
