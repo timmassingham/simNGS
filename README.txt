@@ -51,7 +51,7 @@ sequence is padded with ambiguity characters for the remaining cycles.
 test.like, treating the (single-ended) runfile "s_2_0005.runfile" as 
 paired-end.
 
-cat test100.fa | bin/simNGS -p data/s_2_0005.runfile  > test.like
+cat test100.fa | bin/simNGS -o likelihood -p paired data/s_2_0005.runfile  > test.like
 
 Description of runfile:
 > # 76 cycle PhiX data from Sanger, single-ended. Very good run

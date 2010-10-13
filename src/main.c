@@ -41,6 +41,12 @@
 #define PROGNAME "simNGS"
 #define PROGVERSION "1.1"
 
+enum paired_type { PAIRED_TYPE_SINGLE=0, PAIRED_TYPE_CYCLE, PAIRED_TYPE_PAIRED };
+char * paired_type_str[] = {"single","cycle","paired"};
+enum outformat { OUTPUT_LIKE=0, OUTPUT_FASTA, OUTPUT_FASTQ };
+const char * output_format_str[] = { "likelihood", "fasta", "fastq" };
+
+
 ARRAY(NUC) ambigseq = {NULL,0};
 ARRAY(PHREDCHAR) ambigphred = {NULL,0};
 
@@ -59,6 +65,10 @@ typedef struct{
     ARRAY(NUC) seq, rcseq;
     MAT int1,int2;
 } * SEQSTR;
+
+MAT reverse_complement_MAT(const MAT mat);
+CALLED reverse_complement_CALLED( const CALLED called);
+void free_CALLED(CALLED called);
 
 void free_SEQSTR( SEQSTR seqstr){
     if(NULL==seqstr){ return;}
@@ -101,7 +111,7 @@ void fprint_usage( FILE * fp){
 "\t" PROGNAME " [-a adapter] [-b shape:scale] [-c correlation] [-d]\n"
 "\t       [-f nimpure:ncycle:threshold] [-i filename] [-j range:a:b]\n"
 "\t       [-l lane] [-m insertion:deletion:mutation] [-n ncycle]\n"
-"\t       [-o output_format] [-p] [-q quantile] [-r mu] [-s seed]\n"
+"\t       [-o output_format] [-p option] [-q quantile] [-r mu] [-s seed]\n"
 "\t       [-t tile] [-v factor ] runfile\n"
 "\t" PROGNAME " --help\n"
 "\t" PROGNAME " --licence\n"
@@ -186,10 +196,16 @@ void fprint_help( FILE * fp){
 "\tFormat in which to output results. Either \"likelihood\", \"fasta\",\n"
 "or \"fastq\".\n"
 "\n"
-"-p, --paired\n"
-"\tTreat run as paired-end. For single-ended runs treated as\n"
-"paired, the covariance matrix is duplicated to make two uncorrelated pairs.\n"
-"For paired-end runs treated as single, the second end is ignored.\n"
+"-p, --paired option [default: single]\n"
+"\tTreat run as paired-end.\n"
+"Valid options are: \"single\", \"paired\", \"cycle\".\n"
+"For \"cycle\" reads, the results are reported in machine cycle order\n"
+"(the second end is reverse complemented and appended to first).\n"
+"The \"paired\" option splits the two ends of the read into separate\n"
+"records, indicated by a suffix /1 or /2 to the read name. The second\n"
+"end is reported in the same orientation as the first.\n"
+"For single-ended runs treated as paired, the covariance matrix is\n"
+"duplicated to make two uncorrelated pairs.\n"
 "\n"
 "-q, --quantile quantile [default: 0]\n"
 "\tQuantile below which cluster brightness is discarded and redrawn from\n"
@@ -222,7 +238,7 @@ static struct option longopts[] = {
     { "mutate",     required_argument, NULL, 'm' },
     { "ncycle",     required_argument, NULL, 'n' },
     { "output",     required_argument, NULL, 'o' },
-    { "paired",     no_argument,       NULL, 'p' },
+    { "paired",     required_argument, NULL, 'p' },
     { "quantile",   required_argument, NULL, 'q' },
     { "robust",     required_argument, NULL, 'r' },
     { "seed",       required_argument, NULL, 's' },
@@ -264,13 +280,12 @@ unsigned int parse_uint( const CSTRING str){
     return n;
 }
 
-enum outformat { OUTPUT_LIKE=0, OUTPUT_FASTA, OUTPUT_FASTQ };
-const char * output_format_str[] = { "likelihood", "fasta", "fastq" };
 
 typedef struct {
     unsigned int ncycle;
     real_t shape,scale,corr,threshold;
-    bool paired,desc;
+    enum paired_type paired;
+    bool desc;
     real_t mu,sdfact;
     uint32_t seed;
     uint32_t tile,lane;
@@ -295,7 +310,7 @@ SIMOPT new_SIMOPT(void){
     opt->scale = 0.0;
     opt->corr = 1.0;
     opt->threshold = 0.0;
-    opt->paired = false;
+    opt->paired = PAIRED_TYPE_SINGLE;
     opt->desc = false;
     opt->mu = 0.0;
     opt->seed = 0;
@@ -306,7 +321,7 @@ SIMOPT new_SIMOPT(void){
     opt->purity_cycles = 0;
     opt->purity_max = 0;
     opt->intensity_fn = NULL;
-    opt->format = OUTPUT_LIKE;
+    opt->format = OUTPUT_FASTQ;
     opt->mutate = false;
     opt->ins=0.; opt->del=0.; opt->mut=0.;
     opt->jumble = false;
@@ -339,7 +354,7 @@ void show_SIMOPT (FILE * fp, const SIMOPT simopt){
     validate(NULL!=simopt,);
     fputs("\tOptions:\n",fp);
     fprintf( fp,"ncycle\t%u\n",simopt->ncycle);
-    fprintf( fp,"paired\t%s\n",boolstr[simopt->paired]);
+    fprintf( fp,"paired\t%s\n",paired_type_str[simopt->paired]);
     fprintf( fp,"Brightness correlation\t%f\n",simopt->corr);
     fprintf( fp,"mu\t%f\n",simopt->mu);
     fprintf( fp,"shape\t%f\n",simopt->shape);
@@ -377,7 +392,7 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
     SIMOPT simopt = new_SIMOPT();
     validate(NULL!=simopt,NULL);
     
-    while ((ch = getopt_long(argc, argv, "a:b:c:df:i:j:l:m:n:o:pq:r:s:t:uv:h", longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "a:b:c:df:i:j:l:m:n:o:p:q:r:s:t:uv:h", longopts, NULL)) != -1){
         int ret;
         unsigned long int i=0,j=0;
         switch(ch){
@@ -439,7 +454,15 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
                         errx(EXIT_FAILURE,"Unrecognised output option %s.",optarg);
                     }
                     break;
-        case 'p':   simopt->paired = true;
+        case 'p':   if( strcasecmp(optarg,paired_type_str[PAIRED_TYPE_SINGLE])==0 ){
+                        simopt->paired = PAIRED_TYPE_SINGLE;
+                    } else if ( strcasecmp(optarg,paired_type_str[PAIRED_TYPE_PAIRED])==0 ){
+                        simopt->paired = PAIRED_TYPE_PAIRED;
+                    } else if ( strcasecmp(optarg,paired_type_str[PAIRED_TYPE_CYCLE])==0 ){
+                        simopt->paired = PAIRED_TYPE_CYCLE;
+                    } else {
+                        errx(EXIT_FAILURE,"Unrecognised paired option %s.",optarg);
+                    }
                     break;
         case 'q':   simopt->threshold = parse_real(optarg);
                     if(!isprob(simopt->threshold) ){ 
@@ -500,40 +523,104 @@ static inline real_t prop_lower( const real_t p, const uint32_t n){
     return desc / (1.0 + z*z/n);
 }
 
-void output_likelihood(const SIMOPT simopt, const uint32_t x, const uint32_t y, const CALLED called1, const CALLED called2){
+void output_likelihood_sub(const SIMOPT simopt, const uint32_t x, const uint32_t y, const CALLED called1, const CALLED called2){
+    const bool has_called2 = (called2!=NULL);
     fprintf(stdout,"%u\t%u\t%u\t%u",simopt->lane,simopt->tile,x,y);
     if(called1->pass_filter){
         fprint_intensities(stdout,"",called1->loglike,false);
-        if(simopt->paired){fprint_intensities(stdout,"",called2->loglike,false);}
+        if(has_called2){fprint_intensities(stdout,"",called2->loglike,false);}
     }
+    fputc('\n',stdout);
 }
 
-void output_fasta(const SIMOPT simopt, const char * seqname, const CALLED called1, const CALLED called2){
-    fprintf(stdout,">%s\n",seqname);
-    if(called1->pass_filter){
-        show_ARRAY(NUC)(stdout,called1->calls,"",0);
-        if(simopt->paired){ show_ARRAY(NUC)(stdout,called2->calls,"",0);}
-    } else {
-        show_ARRAY(NUC)(stdout,ambigseq,"",0);
-    }
+void output_likelihood(const SIMOPT simopt, const uint32_t x, const uint32_t y, const CALLED called1, const CALLED called2){
+	CALLED rccalled2 = NULL;
+	switch(simopt->paired){
+	case PAIRED_TYPE_SINGLE:
+	case PAIRED_TYPE_CYCLE:
+		output_likelihood_sub(simopt,x,y,called1,called2);
+		break;
+	case PAIRED_TYPE_PAIRED:
+		rccalled2 = reverse_complement_CALLED(called2);
+		output_likelihood_sub(simopt,x,y,called1,NULL);
+		output_likelihood_sub(simopt,x,y,rccalled2,NULL);
+		free_CALLED(rccalled2);
+		break;
+	default:
+		errx(EXIT_FAILURE,"Unrecognised case %s (%s:%d)",__func__,__FILE__,__LINE__);
+	}	
 }
 
-
-void output_fastq(const SIMOPT simopt, const char * seqname, const CALLED called1, const CALLED called2){
-    fprintf(stdout,"@%s\n",seqname);
+void output_fasta_sub(const SIMOPT simopt, const char * seqname, const char * suffix, const CALLED called1, const CALLED called2){
+    const bool has_called2 = (called2!=NULL);
+    fprintf(stdout,">%s%s\n",seqname,suffix);
     if(called1->pass_filter){
         show_ARRAY(NUC)(stdout,called1->calls,"",0);
-        if(simopt->paired){ show_ARRAY(NUC)(stdout,called2->calls,"",0);}
+        if(has_called2){ show_ARRAY(NUC)(stdout,called2->calls,"",0);}
     } else {
         show_ARRAY(NUC)(stdout,ambigseq,"",0);
+        if(has_called2){ show_ARRAY(NUC)(stdout,ambigseq,"",0);}
+    }
+    fputc('\n',stdout);
+}
+
+void output_fastq_sub(const SIMOPT simopt, const char * seqname, const char * suffix, const CALLED called1, const CALLED called2){
+    const bool has_called2 = (called2!=NULL);
+    fprintf(stdout,"@%s%s\n",seqname,suffix);
+    if(called1->pass_filter){
+        show_ARRAY(NUC)(stdout,called1->calls,"",0);
+        if(has_called2){ show_ARRAY(NUC)(stdout,called2->calls,"",0);}
+    } else {
+        show_ARRAY(NUC)(stdout,ambigseq,"",0);
+        if(has_called2){ show_ARRAY(NUC)(stdout,ambigseq,"",0);}
     }
     fputs("\n+\n",stdout);
     if(called1->pass_filter){
         show_ARRAY(PHREDCHAR)(stdout,called1->quals,"",0);
-        if(simopt->paired){ show_ARRAY(PHREDCHAR)(stdout,called2->quals,"",0);}
+        if(has_called2){ show_ARRAY(PHREDCHAR)(stdout,called2->quals,"",0);}
     } else {
         show_ARRAY(PHREDCHAR)(stdout,ambigphred,"",0);
+        if(has_called2){ show_ARRAY(PHREDCHAR)(stdout,ambigphred,"",0);}
     }
+    fputc('\n',stdout);
+}
+
+void output_fasta(const SIMOPT simopt, const char * seqname, const CALLED called1, const CALLED called2){
+        CALLED rc_called2 = NULL;
+        switch(simopt->paired){
+        case PAIRED_TYPE_SINGLE:
+        case PAIRED_TYPE_CYCLE:
+                output_fasta_sub(simopt,seqname,"",called1,called2);
+                break;
+        case PAIRED_TYPE_PAIRED:
+                rc_called2 = reverse_complement_CALLED(called2);
+                output_fasta_sub(simopt,seqname,"/1",called1,NULL);
+                output_fasta_sub(simopt,seqname,"/2",rc_called2,NULL);
+                free(rc_called2);
+                break;
+        default:
+                errx(EXIT_FAILURE,"Unrecognised case %s (%s:%d)",__func__,__FILE__,__LINE__);
+        }
+}
+
+
+
+void output_fastq(const SIMOPT simopt, const char * seqname, const CALLED called1, const CALLED called2){
+	CALLED rc_called2 = NULL;
+	switch(simopt->paired){
+	case PAIRED_TYPE_SINGLE:
+        case PAIRED_TYPE_CYCLE:
+		output_fastq_sub(simopt,seqname,"",called1,called2);
+		break;
+	case PAIRED_TYPE_PAIRED:
+		rc_called2 = reverse_complement_CALLED(called2);
+		output_fastq_sub(simopt,seqname,"/1",called1,NULL);
+		output_fastq_sub(simopt,seqname,"/2",rc_called2,NULL);
+		free(rc_called2);
+		break;
+	default:
+		errx(EXIT_FAILURE,"Unrecognised case %s (%s:%d)",__func__,__FILE__,__LINE__);
+	}
 }
 
 void output_results(FILE * intout, const SIMOPT simopt, const char * seqname, const uint32_t x, const uint32_t y, const CALLED called1, const CALLED called2){
@@ -554,13 +641,11 @@ void output_results(FILE * intout, const SIMOPT simopt, const char * seqname, co
            output_fasta(simopt,seqname,called1,called2);
            break;
        case OUTPUT_FASTQ:
-           output_fasta(simopt,seqname,called1,called2);
+           output_fastq(simopt,seqname,called1,called2);
            break;
        default:
            errx(EXIT_FAILURE,"Unrecognised format in %s (%s:%d)",__func__,__FILE__,__LINE__);
     }
-
-    fputc('\n',stdout);
 }
 
 struct pair_double { double x1,x2;};
@@ -617,6 +702,61 @@ CALLED process_intensities( const MAT intensities, const real_t lambda, const MA
     return cl;
 }
 
+MAT reverse_complement_MAT(const MAT mat){
+	if(NULL==mat){ return NULL;}
+	if(mat->nrow!=NBASE){
+		errx(EXIT_FAILURE,"reverse_complement_MAT applied to incompatable matrix of %" SCNu32 "x%" SCNu32, mat->nrow,mat->ncol);
+	}
+	MAT m = new_MAT(mat->nrow,mat->ncol);
+	if(NULL==m){ return NULL;}
+	for ( uint32_t col=0 ; col<mat->ncol ; col++){
+		const uint32_t idx = col*NBASE;
+		const uint32_t idx_new = (mat->ncol - col - 1)*NBASE;
+		m->x[idx_new+NUC_A] = mat->x[idx+NUC_T];
+		m->x[idx_new+NUC_C] = mat->x[idx+NUC_G];
+		m->x[idx_new+NUC_G] = mat->x[idx+NUC_C];
+		m->x[idx_new+NUC_T] = mat->x[idx+NUC_A];
+	}
+	return m;
+}
+
+CALLED reverse_complement_CALLED( const CALLED called){
+	if(NULL==called){ return NULL;}
+	ARRAY(NUC) rcnuc = null_ARRAY(NUC);
+	ARRAY(PHREDCHAR) revqual = null_ARRAY(PHREDCHAR);
+	MAT rcintensities=NULL,rcloglike=NULL;
+	CALLED called_new = NULL;
+
+	// Convert entries of previous CALLED object
+	rcnuc = reverse_complement(called->calls);
+	if(rcnuc.elt==NULL){ goto cleanup;}
+	revqual = reverse_quality(called->quals);
+	if(revqual.elt==NULL){ goto cleanup;}
+	rcintensities = reverse_complement_MAT(called->intensities);
+	if(rcintensities==NULL){ goto cleanup;}
+	rcloglike = reverse_complement_MAT(called->loglike);
+	if(rcloglike==NULL){ goto cleanup;}
+	
+	// Create new CALLED object
+	called_new = calloc(1,sizeof(*called_new));
+	if(NULL==called_new){ goto cleanup;}
+	called_new->intensities = rcintensities;
+	called_new->loglike = rcloglike;
+	called_new->calls = rcnuc;
+	called_new->quals = revqual;
+	called_new->pass_filter = called->pass_filter;
+
+	return called_new;
+
+cleanup:
+	free(called_new);
+	free_MAT(rcloglike);
+	free_MAT(rcintensities);
+	free_ARRAY(PHREDCHAR)(revqual);
+	free_ARRAY(NUC)(rcnuc);
+	return NULL;
+}
+
 void free_CALLED(CALLED called){
     if(NULL==called){ return;}
     free_MAT(called->loglike);
@@ -666,24 +806,21 @@ int main( int argc, char * argv[] ){
     if(simopt->scale!=0){ model->scale = simopt->scale;}
     simopt->scale = model->scale;
     
-    if(simopt->paired!=model->paired){
-        if(simopt->paired==false){
-            fputs("Treating paired-end model as single-ended.\n",stderr);
-            model->paired = false;
-            free_MAT(model->cov2);
-            model->cov2 = NULL;
-        } else {
-            fputs("Treating single-ended model as paired-end.\n",stderr);
-            model->paired = true;
-            model->cov2 = copy_MAT(model->cov1);
-            model->chol2 = copy_MAT(model->chol1);
-            model->invchol2 = calloc(model->ncycle,sizeof(*model->invchol2));
-            for ( uint32_t i=0 ; i<model->ncycle ; i++){
-                model->invchol2[i] = copy_MAT(model->invchol1[i]);
-            }
+    if(model->paired && simopt->paired==PAIRED_TYPE_SINGLE){
+        fputs("Treating paired-end model as single-ended.\n",stderr);
+        model->paired = false;
+        free_MAT(model->cov2);
+        model->cov2 = NULL;
+    } else if(!model->paired && simopt->paired!=PAIRED_TYPE_SINGLE){
+        fputs("Treating single-ended model as paired-end.\n",stderr);
+        model->paired = true;
+        model->cov2 = copy_MAT(model->cov1);
+        model->chol2 = copy_MAT(model->chol1);
+        model->invchol2 = calloc(model->ncycle,sizeof(*model->invchol2));
+        for ( uint32_t i=0 ; i<model->ncycle ; i++){
+            model->invchol2[i] = copy_MAT(model->invchol1[i]);
         }
     }
-    simopt->paired = model->paired;
     
     if(simopt->ncycle!=0){
         if(simopt->ncycle>model->ncycle){
@@ -722,10 +859,9 @@ int main( int argc, char * argv[] ){
     }
     
     // Create sequence of ambiguities for filtered calls
-    const uint32_t lim = (model->paired)?(2*model->ncycle):model->ncycle;
-    ambigseq = new_ARRAY(NUC)(lim);
-    ambigphred = new_ARRAY(PHREDCHAR)(lim);
-    for( uint32_t i=0 ; i<lim ; i++){
+    ambigseq = new_ARRAY(NUC)(model->ncycle);
+    ambigphred = new_ARRAY(PHREDCHAR)(model->ncycle);
+    for( uint32_t i=0 ; i<model->ncycle ; i++){
         ambigseq.elt[i] = NUC_AMBIG;
         ambigphred.elt[i] = '!';
     }

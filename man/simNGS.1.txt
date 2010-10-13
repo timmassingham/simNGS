@@ -12,7 +12,7 @@ SYNOPSIS
 *simNGS*  [-a adapter] [-b shape:scale] [-c correlation] [-d]
           [-f nimpure:ncycle:threshold] [-i filename] [-j range:a:b]
           [-l lane] [-m insertion:deletion:mutation] [-n ncycle]
-          [-o output_format] [-p] [-q quantile] [-r mu] [-s seed]
+          [-o output_format] [-p option] [-q quantile] [-r mu] [-s seed]
           [-t tile] [-v factor ] runfile
 
 
@@ -120,7 +120,7 @@ allowed in the runfile. If more cycles are asked for than allowed, a
 warning is printed and the number of cycles outputted is restricted to 
 number specificed in the runfile.
 
-*-o, --output* format [default: likelihood]::
+*-o, --output* format [default: fastq]::
         Format in which to output results. Either "likelihood", 
 "fasta" or "fastq". "likelihood" is the format specified in the file 
 README.txt, containing the likelihoods of all possible base-calls. 
@@ -131,15 +131,23 @@ unless over-ridden setting the output format to "fastq" sets mu to
 1e-5 to better calibrate the qualities for polymerase error. 
 See *--robust* for details.
 
-*-p, --paired*::
-        Treat run as paired-end. For single-ended runs treated as 
-paired, the covariance matrix is duplicated to make two uncorrelated 
-pairs with identical error characteristics. For paired-end runs 
-treated as single, the second end is ignored. The covariance matrices 
-for the ends of a paired-end run were estimated and stored separately, 
-implying an assumption of independence between the two ends. The 
-brightness of the cluster is assumed to be equal for both ends, which 
+*-p, --paired* option [default: single]::
+        Treat run as paired-end. Valid options are: "single", "paired", "cycle".
+
+For "cycle" reads are treated as paired-end but the results are reported
+in machine cycle order (the second end is reverse complemented and
+appended to first). The "paired" option splits the two ends of the read
+into separate records, indicated by a suffix /1 or /2 to the read name.
+The second end is reported in the same orientation as the first.
+
+For single-ended runs treated as paired, the covariance matrix is
+duplicated to make two uncorrelated pairs with identical error
+characteristics. For paired-end runs treated as single, the second end is
+ignored. The covariance matrices for the ends of a paired-end run were estimated
+and stored separately, implying an assumption of independence between the two
+ends. The brightness of the cluster is assumed to be equal for both ends, which
 can be changed using the *--correlation* option.
+
 
 *-q, --quantile* quantile [default: 0]::
         Quantile below which cluster brightness is discarded and 
