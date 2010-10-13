@@ -221,7 +221,7 @@ AUTHOR
 ------
 Written by Tim Massingham, <tim.massingham@ebi.ac.uk>
 
-cifboot uses the optimised SFMT code for the Mersenne twister random
+simNGS uses the optimised SFMT code for the Mersenne twister random
 number generator produced by Mutsuo Saito and Makoto Matsumotom, which
 is available from Hiroshima University under a three-clause BSD style
 licence.
