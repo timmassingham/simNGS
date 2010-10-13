@@ -6,7 +6,7 @@
                [-f nimpure:ncycle:threshold] [-i filename] [-j range:a:b]
                [-l lane] [-m insertion:deletion:mutation] [-n ncycle]
                [-o output_format] [-p option] [-q quantile] [-r mu] [-s seed]
-               [-t tile] [-v factor ] runfile
+               [-t tile] [-v factor ] runfile [seq.fa ... ]
         simNGS --help
         simNGS --licence
         simNGS --license

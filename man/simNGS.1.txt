@@ -13,7 +13,7 @@ SYNOPSIS
           [-f nimpure:ncycle:threshold] [-i filename] [-j range:a:b]
           [-l lane] [-m insertion:deletion:mutation] [-n ncycle]
           [-o output_format] [-p option] [-q quantile] [-r mu] [-s seed]
-          [-t tile] [-v factor ] runfile
+          [-t tile] [-v factor ] runfile [seq.fa ... ]
 
 
 *simNGS* --help
@@ -38,9 +38,11 @@ of noise between bases and cycles observed in an actual run of the machine,
 randomly generates noisy intensities representing the signals for the sequence 
 at each cycle and calculates likelihoods for all possible base calls.
 
-Sequences are read from stdin and results are written to stdout in the
-format specified by the -o, --output flag. Messages, progress indicators
-and a summary of errors in the generated data are written to stderr.
+Sequences are either read from files, whose names are given on the commandline,
+or from stdin. It is up to the user to make sure that the sequence names are
+unique. Results are written to stdout in the format specified by the -o, 
+--output flag. Messages, progress indicators and a summary of errors in the 
+generated data are written to stderr.
 
 Ambiguous characters are interpretated as "no base present" and 
 treated as a null call: the intensities generated are just noise and do not
@@ -193,11 +195,16 @@ scale of the brightness distribution by 1/sqrt(f).
 
 EXAMPLE
 -------
-Produces likelihoods for sequences in test100.fa and outputs to 
-test.like, treating the (single-ended) runfile "s_2_0005.runfile" as 
+Produces fastq results for sequences in test100.fa and outputs to 
+test.fq, treating the (single-ended) runfile "s_2_0005.runfile" as 
 paired-end.
 
-cat test100.fa | simNGS -p data/s_2_0005.runfile  > test.like
+cat test100.fa | simNGS -p paired data/s_2_0005.runfile  > test.fq
+
+Reads from the sequence files seq1.fa and seq2.fa and outputs likelihood
+information to the file seq.like.A
+
+simNGS -o likelihood data/s_2_0005.runfile seq1.fa seq2.fa > seq.like
 
 KNOWN BUGS
 ----------
