@@ -500,6 +500,41 @@ static inline real_t prop_lower( const real_t p, const uint32_t n){
     return desc / (1.0 + z*z/n);
 }
 
+void output_likelihood(const SIMOPT simopt, const uint32_t x, const uint32_t y, const CALLED called1, const CALLED called2){
+    fprintf(stdout,"%u\t%u\t%u\t%u",simopt->lane,simopt->tile,x,y);
+    if(called1->pass_filter){
+        fprint_intensities(stdout,"",called1->loglike,false);
+        if(simopt->paired){fprint_intensities(stdout,"",called2->loglike,false);}
+    }
+}
+
+void output_fasta(const SIMOPT simopt, const char * seqname, const CALLED called1, const CALLED called2){
+    fprintf(stdout,">%s\n",seqname);
+    if(called1->pass_filter){
+        show_ARRAY(NUC)(stdout,called1->calls,"",0);
+        if(simopt->paired){ show_ARRAY(NUC)(stdout,called2->calls,"",0);}
+    } else {
+        show_ARRAY(NUC)(stdout,ambigseq,"",0);
+    }
+}
+
+
+void output_fastq(const SIMOPT simopt, const char * seqname, const CALLED called1, const CALLED called2){
+    fprintf(stdout,"@%s\n",seqname);
+    if(called1->pass_filter){
+        show_ARRAY(NUC)(stdout,called1->calls,"",0);
+        if(simopt->paired){ show_ARRAY(NUC)(stdout,called2->calls,"",0);}
+    } else {
+        show_ARRAY(NUC)(stdout,ambigseq,"",0);
+    }
+    fputs("\n+\n",stdout);
+    if(called1->pass_filter){
+        show_ARRAY(PHREDCHAR)(stdout,called1->quals,"",0);
+        if(simopt->paired){ show_ARRAY(PHREDCHAR)(stdout,called2->quals,"",0);}
+    } else {
+        show_ARRAY(PHREDCHAR)(stdout,ambigphred,"",0);
+    }
+}
 
 void output_results(FILE * intout, const SIMOPT simopt, const char * seqname, const uint32_t x, const uint32_t y, const CALLED called1, const CALLED called2){
     // Output raw intensities if required
@@ -513,36 +548,13 @@ void output_results(FILE * intout, const SIMOPT simopt, const char * seqname, co
     // Output in format requested
     switch(simopt->format){
        case OUTPUT_LIKE:
-           fprintf(stdout,"%u\t%u\t%u\t%u",simopt->lane,simopt->tile,x,y);
-           if(called1->pass_filter){
-                fprint_intensities(stdout,"",called1->loglike,false);
-                if(simopt->paired){fprint_intensities(stdout,"",called2->loglike,false);}
-           }
+           output_likelihood(simopt,x,y,called1,called2);
            break;
        case OUTPUT_FASTA:
-           fprintf(stdout,">%s\n",seqname);
-           if(called1->pass_filter){
-               show_ARRAY(NUC)(stdout,called1->calls,"",0);
-               if(simopt->paired){ show_ARRAY(NUC)(stdout,called2->calls,"",0);}
-           } else {
-               show_ARRAY(NUC)(stdout,ambigseq,"",0);
-           }
+           output_fasta(simopt,seqname,called1,called2);
            break;
        case OUTPUT_FASTQ:
-           fprintf(stdout,"@%s\n",seqname);
-           if(called1->pass_filter){
-               show_ARRAY(NUC)(stdout,called1->calls,"",0);
-               if(simopt->paired){ show_ARRAY(NUC)(stdout,called2->calls,"",0);}
-           } else {
-               show_ARRAY(NUC)(stdout,ambigseq,"",0);
-           }
-           fputs("\n+\n",stdout);
-           if(called1->pass_filter){
-               show_ARRAY(PHREDCHAR)(stdout,called1->quals,"",0);
-               if(simopt->paired){ show_ARRAY(PHREDCHAR)(stdout,called2->quals,"",0);}
-           } else {
-               show_ARRAY(PHREDCHAR)(stdout,ambigphred,"",0);
-           }
+           output_fasta(simopt,seqname,called1,called2);
            break;
        default:
            errx(EXIT_FAILURE,"Unrecognised format in %s (%s:%d)",__func__,__FILE__,__LINE__);
