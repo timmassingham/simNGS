@@ -24,6 +24,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <assert.h>
+#include <inttypes.h>
 #include "utility.h"
 
 bool isprob( const real_t p){
@@ -60,59 +61,59 @@ int read_int(FILE *fp){ int i; fscanf(fp,"%d",&i); return i;}
 _FREE(int8_t)
 _COPY(int8_t)
 int8_t new_int8_t( void ){ return 0;}
-void show_int8_t( FILE * fp, const int8_t i){ fprintf(fp,"%d",i); }
-int8_t read_int8_t (FILE *fp){ long int i; fscanf(fp,"%ld",&i); return i;}
+void show_int8_t( FILE * fp, const int8_t i){ fprintf(fp,"%"SCNd8,i); }
+int8_t read_int8_t (FILE *fp){ int8_t i; fscanf(fp,"%"SCNd8,&i); return i;}
 
 /* int16_t */
 _FREE(int16_t)
 _COPY(int16_t)
 int16_t new_int16_t( void ){ return 0;}
-void show_int16_t( FILE * fp, const int16_t i){ fprintf(fp,"%d",i); }
-int16_t read_int16_t (FILE *fp){ long int i; fscanf(fp,"%ld",&i); return i;}
+void show_int16_t( FILE * fp, const int16_t i){ fprintf(fp,"%"SCNu16,i); }
+int16_t read_int16_t (FILE *fp){ int16_t i; fscanf(fp,"%"SCNu16,&i); return i;}
 
 /* int32_t */
 _FREE(int32_t)
 _COPY(int32_t)
 int32_t new_int32_t( void ){ return 0;}
-void show_int32_t( FILE * fp, const int32_t i){ fprintf(fp,"%d",i); }
-int32_t read_int32_t (FILE *fp){ long int i; fscanf(fp,"%ld",&i); return i;}
+void show_int32_t( FILE * fp, const int32_t i){ fprintf(fp,"%" SCNd32,i); }
+int32_t read_int32_t (FILE *fp){ int32_t i; fscanf(fp,"%"SCNd32,&i); return i;}
 
 /* int64_t */
 _FREE(int64_t)
 _COPY(int64_t)
 int64_t new_int64_t( void ){ return 0;}
-void show_int64_t( FILE * fp, const int64_t i){ fprintf(fp,"%lld",i); }
-int64_t read_int64_t (FILE *fp){ long int i; fscanf(fp,"%ld",&i); return i;}
+void show_int64_t( FILE * fp, const int64_t i){ fprintf(fp,"%" SCNd64,i); }
+int64_t read_int64_t (FILE *fp){ int64_t i; fscanf(fp,"%"SCNd64,&i); return i;}
 
 /* uint8_t */
 _FREE(uint8_t)
 _COPY(uint8_t)
 uint8_t new_uint8_t( void ){ return 0;}
-void show_uint8_t( FILE * fp, const uint8_t i){ fprintf(fp,"%u",i); }
-uint8_t read_uint8_t (FILE *fp){ unsigned long int i; fscanf(fp,"%lu",&i); return i;}
+void show_uint8_t( FILE * fp, const uint8_t i){ fprintf(fp,"%"SCNu8,i); }
+uint8_t read_uint8_t (FILE *fp){ uint8_t i; fscanf(fp,"%"SCNu8,&i); return i;}
 
 /* uint16_t */
 _FREE(uint16_t)
 _COPY(uint16_t)
 uint16_t new_uint16_t( void ){ return 0;}
-void show_uint16_t( FILE * fp, const uint16_t i){ fprintf(fp,"%u",i); }
-uint16_t read_uint16_t (FILE *fp){ unsigned long int i; fscanf(fp,"%lu",&i); return i;}
+void show_uint16_t( FILE * fp, const uint16_t i){ fprintf(fp,"%"SCNu16,i); }
+uint16_t read_uint16_t (FILE *fp){ uint16_t i; fscanf(fp,"%"SCNu16,&i); return i;}
 
 
 /* uint32_t */
 _FREE(uint32_t)
 _COPY(uint32_t)
 uint32_t new_uint32_t( void ){ return 0;}
-void show_uint32_t( FILE * fp, const uint32_t i){ fprintf(fp,"%u",i); }
-uint32_t read_uint32_t (FILE *fp){ unsigned long int i; fscanf(fp,"%lu",&i); return i;}
+void show_uint32_t( FILE * fp, const uint32_t i){ fprintf(fp,"%" SCNu32,i); }
+uint32_t read_uint32_t (FILE *fp){ uint32_t i; fscanf(fp,"%"SCNu32,&i); return i;}
 
 
 /* uint64_t */
 _FREE(uint64_t)
 _COPY(uint64_t)
 uint64_t new_uint64_t( void ){ return 0;}
-void show_uint64_t( FILE * fp, const uint64_t i){ fprintf(fp,"%llu",i); }
-uint64_t read_uint64_t (FILE *fp){ unsigned long int i; fscanf(fp,"%lu",&i); return i;}
+void show_uint64_t( FILE * fp, const uint64_t i){ fprintf(fp,"%" SCNu64,i); }
+uint64_t read_uint64_t (FILE *fp){ uint64_t i; fscanf(fp,"%"SCNu64,&i); return i;}
 
 
 /* float */
