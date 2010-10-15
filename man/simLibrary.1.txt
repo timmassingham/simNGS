@@ -1,0 +1,111 @@
+simLibrary(1)
+=============
+
+
+NAME
+----
+simLibrary - split sequences into a simulated library of fragments
+
+SYNOPSIS
+--------
+*simLibrary* 	[-b bias] [-c cov] [-i insertlen] [-m multiplier_file]
+                [-n nfragments] -p [-r readlen] [-s strand] 
+                [-v variance] [-x coverage] [--seed seed] seq1.fa ...
+
+*simLibrary* --help
+
+*simLibrary* --licence
+
+*simLibrary* --version
+
+DESCRIPTION
+-----------
+simLibrary reads from files specified, or stdin if none are given, and 
+writes to stdout. Messages and progess indicators are written to stderr.
+
+*-b, --bias* bias [default: 0.5]::
+	Strand bias for sampling. The probability of sampling a read from the
+positive strand.
+
+*-c, --cov* cov [default: 0.055]::
+	Coefficient Of Variance (COV) for the read lengths. The COV is the
+ratio of the variance to the mean^2 and is related to the variance of the
+log-normal distribution by cov = exp(var)-1. If the variance option is set,
+it takes presidence.
+
+*-i, --insert* insert_length [default: 400]::
+	Mean length of insert. The mean length of the reads sampled is the
+insert length plus twice the read length.
+
+*-m, --multipliers* file [default: see text]::
+	A file containing multiplers, one per line, for the number of
+fragments to produce for each input sequence. The total number of
+fragments produced for each sequence is controlled by the --coverage
+and --nfragments but scaled by the multiplier. If there are multiple
+input sequences and a multipliers file is not given, or contains
+insufficient multipliers, then a default multiplier of one is used.
+
+*-n, --nfragments* nfragments [default: from coverage]::
+	Number of fragments to produce for library. By default the number of
+fragments is sufficient for the coverage given. If the number of fragments
+is set then this option takes priority.
+
+*-p, --paired* [default: true]::
+	Turn off paired-end generation. The average fragment length will be
+shorter by an amount equal to the read length but the main effect of turning
+off paired-end generation is in the coverage calculations: twice as many
+fragments will be generated for single-ended runs as paired-end.
+
+*-r, --readlen* read_length [default: 45]::
+	Read length to sample. Affects the total length of fragments produced
+and the total number of fragments produced via the coverage.
+
+*-s, --strand* strand [default: random]::
+	Strand from which simulated reads are to come from, relative
+to current strand. Options are: opposite, random, same.
+
+*--seed* seed [default: clock]::
+	Set seed from random number generator.
+
+*-v, --variance* variance [default: from COV]::
+	The variance of the read length produced. By default, the variance is
+set using the effective read length and the Coefficient of Variance so the
+standard deviation is proportional to the mean. Setting the variance takes
+priority over the COV.
+
+*-x, --coverage* coverage [default: 2.0]::
+	Average coverage of original sequence for simulated by fragments. If
+the number of fragments to produce is set, it take priority over the coverage.
+
+EXAMPLE
+-------
+        cat genome.fa | simLibrary > library.fa
+
+AUTHOR
+------
+Written by Tim Massingham, <tim.massingham@ebi.ac.uk>
+
+simLibrary uses the optimised SFMT code for the Mersenne twister random
+number generator produced by Mutsuo Saito and Makoto Matsumotom, which
+is available from Hiroshima University under a three-clause BSD style
+licence.
+
+RESOURCES
+---------
+See <http://www.ebi.ac.uk/~timm/simNGS/>
+
+COPYING
+-------
+Copyright (C) 2010 European Bioinformatics Institute. Free use of this 
+software is granted under the terms of the GNU General Public License 
+(GPL). See the file *COPYING* in the simLibrary distribution or  
+<http://www.gnu.org/licenses/gpl.html> for details.
+
+The included SFMT library is copyright (C) 2006,2007 Mutsuo Saito,
+Makoto Matsumoto and Hiroshima University, and is distributed under a
+three-clause BSD style licence. Seee
+<http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/SFMT/>.
+
+SEE ALSO
+--------
+simNGS(1)

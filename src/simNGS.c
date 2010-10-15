@@ -39,7 +39,7 @@
 
 #define ILLUMINA_ADAPTER "AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGAT"
 #define PROGNAME "simNGS"
-#define PROGVERSION "1.1"
+#define PROGVERSION "1.2"
 
 enum paired_type { PAIRED_TYPE_SINGLE=0, PAIRED_TYPE_CYCLE, PAIRED_TYPE_PAIRED };
 char * paired_type_str[] = {"single","cycle","paired"};
@@ -150,7 +150,7 @@ void fprint_help( FILE * fp){
 12345678901234567890123456789012345678901234567890123456789012345678901234567890
 */
 "\n"
-"-a, --adapter sequence [default: " ILLUMINA_ADAPTER " ]\n"
+"-a, --adapter sequence [default: " ILLUMINA_ADAPTER "]\n"
 "\tSequence to pad reads with if they are shorter than the number of\n"
 "cycles required, reflecting the adpater sequence used for sample preparaton.\n"
 "A null adapter (i.e. pad with ambiguity characters) can be specified by -a \"\"\n" 
@@ -874,10 +874,9 @@ int main( int argc, char * argv[] ){
             fp = fopen(argv[0],"r");
             if(NULL==fp){
                 warnx("Failed to open file \"%s\" for input",argv[0]);
-                break;
             }
         }
-        while ((seq=sequence_from_fasta(fp))!=NULL){
+        while (NULL!=fp && (seq=sequence_from_fasta(fp))!=NULL){
             //show_SEQ(stderr,seq);
             if(simopt->mutate){
                 SEQ mut = mutate_SEQ(seq,simopt->ins,simopt->del,simopt->mut);
@@ -937,6 +936,7 @@ int main( int argc, char * argv[] ){
                 if( (seq_count%1000)==0 ){ fprintf(stderr,"\rDone: %8u",seq_count); }        
             }
         }
+        fclose(fp);
         argc--;
         argv++;
     } while(argc>0);

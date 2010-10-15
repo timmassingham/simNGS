@@ -53,7 +53,7 @@ called is shorter than the expected read length, either because the input
 was too short or deletion from the mutation model have shortened it, the
 sequence is padded with ambiguity characters for the remaining cycles.
 
-*-a, --adapter* sequence [default: AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGAT ]::
+*-a, --adapter* sequence [default: AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGAT]::
         Sequence to pad reads with if they are shorter than the number
 of cycles required, reflecting the adpater sequence used for sample
 preparaton. A null adapter (i.e. pad with ambiguity characters) can be
@@ -242,4 +242,6 @@ Makoto Matsumoto and Hiroshima University, and is distributed under a
 three-clause BSD style licence. Seee
 <http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/SFMT/>.
 
-
+SEE ALSO
+--------
+simLibrary(1)
