@@ -11,7 +11,7 @@ INCFLAGS =
 DEFINES = -DUSEFLOAT -D_GNU_SOURCE -DUSE_BLAS
 objects =  sfmt.o matrix.o nuc.o intensities.o normal.o weibull.o sequence.o mystring.o simNGS.o utility.o random.o kumaraswamy.o
 
-all: simNGS simLibrary man
+all: simNGS simLibrary
 
 simNGS: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(LDFLAGS) $(objects)
@@ -41,7 +41,10 @@ man_html: $(MANDIR)/simNGS.1.html $(MANDIR)/simLibrary.1.html
 	cd $(MANDIR) && a2x -d manpage -f manpage $<
 
 clean:
-	rm -f ../bin/* *~ *.o  *.obj  *.exe *.lib  $(MANDIR)/*.1 $(MANDIR)/*.1.html && cd SFMT-src-1.3 && make clean
+	rm -f ../bin/* *~ *.o  *.obj  *.exe *.lib && cd SFMT-src-1.3 && make clean
 
-archive: clean man
+man_clean:
+	rm -f $(MANDIR)/*.1 $(MANDIR)/*.1.html
+
+archive: clean man_clean man
 	cd ../.. && tar zcf simNGS.tgz --exclude=.git --exclude=archive --exclude=test --exclude=runfiles simNGS

@@ -11,7 +11,7 @@ MANDIR = ../man
 DEFINES = -DUSEFLOAT -DHAS_REALLOCF -DUSE_BLAS
 objects =  sfmt.o matrix.o nuc.o intensities.o normal.o weibull.o sequence.o mystring.o simNGS.o utility.o random.o kumaraswamy.o
 
-all: simNGS simLibrary man
+all: simNGS simLibrary
 
 simNGS: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(LDFLAGS) $(objects)
@@ -25,7 +25,10 @@ simLibrary: sfmt.o simlibrary.o utility.o random.o sequence.o nuc.o mystring.o n
 	g77 -O3 -o $@ -c $<
 
 clean:
-	rm -f ../bin/* *~ *.o  *.obj  *.exe *.lib  $(MANDIR)/*.1 $(MANDIR)/*.html && cd SFMT-src-1.3 && make clean
+	rm -f ../bin/* *~ *.o  *.obj  *.exe *.lib && cd SFMT-src-1.3 && make clean
+
+man_clean:
+	rm -f $(MANDIR)/*.1 $(MANDIR)/*.html
 
 sfmt.o: 
 	gcc -o sfmt.o $(CFLAGSSFMT) -DMEXP=19937 -ISFMT-src-1.3/ -c SFMT-src-1.3/SFMT.c
@@ -42,5 +45,5 @@ man_html: $(MANDIR)/simNGS.1.html $(MANDIR)/simLibrary.1.html
 %.1 : %.1.txt
 	cd $(MANDIR) && a2x -d manpage -f manpage $<
 
-archive: clean man
+archive: clean man_clean man
 	cd ../.. && tar zcf simNGS.tgz --exclude=.git --exclude=archive --exclude=test --exclude=runfiles simNGS
