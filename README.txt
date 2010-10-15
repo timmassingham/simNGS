@@ -117,14 +117,11 @@ twice as many cycles.
 in a real run of an Illumina machine, as estimated by AYB.
 It consists of:
  1) One line of free-text describing the run (prefixed by a '#').
- 2) One line containing the lane number, tile number, and the shape and scale
+ 2) One line containing the number of cyles and the shape and scale
 of the distribution of the brightness of clusters.
- 3) One line describing the dimensions of the covariance matrix for the first
-end of the run, the number of rows and columns are each equal to four times the
-number of cycles.
- 4) Several lines, one per row of the covariance matrix, containing the elements
+ 3) Several lines, one per row of the covariance matrix, containing the elements
 of that row.
-	If the run was paired-ended, (3) and (4) are repeated for a second
+	If the run was paired-ended, (3) is repeated for a second
 matrix, which should have the same dimensions as the first.
 
 	The matrices in runfile are covariance matrices for the noise in the run
