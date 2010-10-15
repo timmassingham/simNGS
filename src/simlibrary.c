@@ -246,7 +246,7 @@ OPT parse_options(const int argc, char * const argv[] ){
         case 'm':
             opt->multiplier_fp = fopen(optarg,"r");
             if(NULL==opt->multiplier_fp){
-                warnx("Failed to open multiplier file \"%s\". Using multiplier of one.");
+                warnx("Failed to open multiplier file \"%s\". Using multiplier of one.",optarg);
             }
             break;
         case 'n':
@@ -344,7 +344,7 @@ int main ( int argc, char * argv[]){
                     opt->multiplier_fp = NULL;
                 }
                 if(multiplier<0.0){
-                    warnx("Invalid fragment multiplier %lf. Using 1");
+                    warnx("Invalid fragment multiplier %lf. Using 1",multiplier);
                     multiplier = 1.0;
                 }
             }
