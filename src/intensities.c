@@ -170,9 +170,11 @@ void show_MODEL( FILE * fp, MODEL model){
 
 MODEL new_MODEL_from_fp( FILE * fp){
     validate(NULL!=fp,NULL);
+
+    char c = EOF;
     char * label = NULL;
-    char c = fgetc(fp); ungetc(c,fp);
-    if ( '#'==c){
+    size_t labellen = 0;
+    while ( (c=fgetc(fp)) == '#' ){
         size_t len = 0;
         char * ln = NULL;
         #ifdef  _GNU_SOURCE
@@ -181,12 +183,16 @@ MODEL new_MODEL_from_fp( FILE * fp){
         ln = fgetln(fp,&len);
         #endif
 
-        label = calloc(len+1,sizeof(char));
-        memcpy(label,ln,len*sizeof(char));
+        label = reallocf(label,(1+labellen+len)*sizeof(char));
+        if(NULL==label){ return NULL;} // Should really call cleanup here
+        memcpy(label+labellen,ln,len*sizeof(char));
+        label[labellen+len] = '\0';
+        labellen += len;
         #ifdef _GNU_SOURCE
         free(ln);
         #endif
     }
+    ungetc(c,fp);
     uint32_t ncycle=0;
     real_t shape=0.0, scale=0.0;
     fscanf(fp, "%"SCNu32 real_format_str real_format_str,&ncycle,&shape,&scale);
