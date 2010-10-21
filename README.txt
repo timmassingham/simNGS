@@ -116,7 +116,7 @@ twice as many cycles.
 	The runfile describes how noise and cluster intensites was distributed
 in a real run of an Illumina machine, as estimated by AYB.
 It consists of:
- 1) One line of free-text describing the run (prefixed by a '#').
+ 1) One or more lines of free-text describing the run (each prefixed by a '#').
  2) One line containing the number of cyles and the shape and scale
 of the distribution of the brightness of clusters.
  3) Several lines, one per row of the covariance matrix, containing the elements
