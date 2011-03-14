@@ -268,7 +268,7 @@ OPT parse_options(const int argc, char * const argv[] ){
             break;
         case 'v':
             opt->variance = parse_real(optarg);
-            if(opt->variance<0.0){errx(EXIT_FAILURE,"Variance of insert size should be non-zero");}
+            if(opt->variance<=0.0){errx(EXIT_FAILURE,"Variance of insert size should be non-zero");}
             break;
         case 'x':
             opt->coverage = parse_real(optarg);
