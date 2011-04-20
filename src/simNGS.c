@@ -535,7 +535,6 @@ void output_likelihood_sub(const SIMOPT simopt, const uint32_t x, const uint32_t
 }
 
 void output_likelihood(const SIMOPT simopt, const uint32_t x, const uint32_t y, const CALLED called1, const CALLED called2){
-	CALLED rccalled2 = NULL;
 	switch(simopt->paired){
 	case PAIRED_TYPE_SINGLE:
 	case PAIRED_TYPE_CYCLE:
@@ -585,7 +584,6 @@ void output_fastq_sub(const SIMOPT simopt, const char * seqname, const char * su
 }
 
 void output_fasta(const SIMOPT simopt, const char * seqname, const CALLED called1, const CALLED called2){
-        CALLED rc_called2 = NULL;
         switch(simopt->paired){
         case PAIRED_TYPE_SINGLE:
         case PAIRED_TYPE_CYCLE:
@@ -603,7 +601,6 @@ void output_fasta(const SIMOPT simopt, const char * seqname, const CALLED called
 
 
 void output_fastq(const SIMOPT simopt, const char * seqname, const CALLED called1, const CALLED called2){
-	CALLED rc_called2 = NULL;
 	switch(simopt->paired){
 	case PAIRED_TYPE_SINGLE:
         case PAIRED_TYPE_CYCLE:
