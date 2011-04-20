@@ -140,7 +140,7 @@ For "cycle" reads are treated as paired-end but the results are reported
 in machine cycle order (the second end is reverse complemented and
 appended to first). The "paired" option splits the two ends of the read
 into separate records, indicated by a suffix /1 or /2 to the read name.
-The second end is reported in the same orientation as the first.
+The second end is reported in the opposite orientation to the first.
 
 For single-ended runs treated as paired, the covariance matrix is
 duplicated to make two uncorrelated pairs with identical error
