@@ -542,10 +542,8 @@ void output_likelihood(const SIMOPT simopt, const uint32_t x, const uint32_t y, 
 		output_likelihood_sub(simopt,x,y,called1,called2);
 		break;
 	case PAIRED_TYPE_PAIRED:
-		rccalled2 = reverse_complement_CALLED(called2);
 		output_likelihood_sub(simopt,x,y,called1,NULL);
-		output_likelihood_sub(simopt,x,y,rccalled2,NULL);
-		free_CALLED(rccalled2);
+		output_likelihood_sub(simopt,x,y,called2,NULL);
 		break;
 	default:
 		errx(EXIT_FAILURE,"Unrecognised case %s (%s:%d)",__func__,__FILE__,__LINE__);
@@ -594,10 +592,8 @@ void output_fasta(const SIMOPT simopt, const char * seqname, const CALLED called
                 output_fasta_sub(simopt,seqname,"",called1,called2);
                 break;
         case PAIRED_TYPE_PAIRED:
-                rc_called2 = reverse_complement_CALLED(called2);
                 output_fasta_sub(simopt,seqname,"/1",called1,NULL);
-                output_fasta_sub(simopt,seqname,"/2",rc_called2,NULL);
-                free(rc_called2);
+                output_fasta_sub(simopt,seqname,"/2",called2,NULL);
                 break;
         default:
                 errx(EXIT_FAILURE,"Unrecognised case %s (%s:%d)",__func__,__FILE__,__LINE__);
@@ -614,10 +610,8 @@ void output_fastq(const SIMOPT simopt, const char * seqname, const CALLED called
 		output_fastq_sub(simopt,seqname,"",called1,called2);
 		break;
 	case PAIRED_TYPE_PAIRED:
-		rc_called2 = reverse_complement_CALLED(called2);
 		output_fastq_sub(simopt,seqname,"/1",called1,NULL);
-		output_fastq_sub(simopt,seqname,"/2",rc_called2,NULL);
-		free(rc_called2);
+		output_fastq_sub(simopt,seqname,"/2",called2,NULL);
 		break;
 	default:
 		errx(EXIT_FAILURE,"Unrecognised case %s (%s:%d)",__func__,__FILE__,__LINE__);
