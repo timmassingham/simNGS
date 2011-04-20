@@ -1004,9 +1004,9 @@ int main( int argc, char * argv[] ){
     // Histograms
     fputs("Number of errors per read",stderr);
     for ( uint32_t i=0 ; i<6 ; i++){
-        fprintf(stderr,"\n%2u: %7u %6.2f",i,errorhist[i],(100.0*errorhist[i])/unfiltered_count);
+        fprintf(stderr,"\n%2u: %7u %6.2f%%",i,errorhist[i],(100.0*errorhist[i])/unfiltered_count);
         if(simopt->paired){
-            fprintf(stderr,"\t %7u %6.2f",errorhist2[i],(100.0*errorhist2[i])/unfiltered_count);
+            fprintf(stderr,"\t %7u %6.2f%%",errorhist2[i],(100.0*errorhist2[i])/unfiltered_count);
         }
     }
     fprintf(stderr,"\n>5: %7u %6.2f",errorhist[6],(100.0*errorhist[6])/unfiltered_count);
