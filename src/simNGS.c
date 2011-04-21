@@ -217,7 +217,7 @@ void fprint_help( FILE * fp){
 "\tQuantile below which cluster brightness is discarded and redrawn from\n"
 "distribution.\n"
 "\n"
-"-r, --robust mu [default: 0]\n"
+"-r, --robust mu [default: 1e-5]\n"
 "\tCalculate robustified likelihood, equivalent to adding mu to every\n"
 "likelihood.\n"
 "\n"
@@ -320,7 +320,7 @@ SIMOPT new_SIMOPT(void){
     opt->threshold = 0.0;
     opt->paired = PAIRED_TYPE_SINGLE;
     opt->desc = false;
-    opt->mu = 0.0;
+    opt->mu = 1.0e-5;
     opt->seed = 0;
     opt->sdfact = 1.0;
     opt->final_factor[0] = -1.0;

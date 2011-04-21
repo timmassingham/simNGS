@@ -168,7 +168,7 @@ is in the lower "quantile" quantile of the brightness distribution,
 then discard the values and redraw. Very dim clusters would be lost in 
 the image analysis of an actual run and never found.
 
-*-r, --robust* mu [default: 0.]::
+*-r, --robust* mu [default: 1e-5]::
         Output robustified likelihood, equivalent to adding mu to the
 likelihood of every call. "mu" should be a real number greater than 
 zero. The default for simNGS is to produce raw likelihoods so errors 
