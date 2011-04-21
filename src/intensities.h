@@ -41,7 +41,7 @@ void free_MODEL(MODEL model);
 MODEL copy_MODEL(const MODEL model);
 void show_MODEL(FILE * fp, const MODEL model);
 
-MODEL trim_MODEL(const uint32_t ncycle, const MODEL model);
+MODEL trim_MODEL(const uint32_t ncycle, real_t final_factor[4], const MODEL model);
 
 MODEL new_MODEL_from_fp( FILE * fp );
 MODEL new_MODEL_from_file( const CSTRING filename);

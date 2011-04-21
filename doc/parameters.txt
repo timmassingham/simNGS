@@ -2,7 +2,7 @@
 
 ** Usage
 
-        simNGS [-a adapter] [-b shape:scale] [-c correlation] [-d]
+        simNGS [-a adapter] [-b shape:scale] [-c correlation] [-d] [-F factor]
                [-f nimpure:ncycle:threshold] [-i filename] [-j range:a:b]
                [-l lane] [-m insertion:deletion:mutation] [-n ncycle]
                [-o output_format] [-p option] [-q quantile] [-r mu] [-s seed]
@@ -41,6 +41,13 @@ on the commandline, so its value should belong to [-1,1].
 -d, --describe
 	Print a description of the runfile and exit.
 
+-F, --final factor [default: see text]
+        Increase variance of noise for the final cycle by given factor.
+When the number of cycles to simulate is equal to that which the runfile
+is trained on, a factor of one is used by default. When the number of
+cycles required is fewer, a scaling is learned by comparing the variance of
+the final two cycles.
+	Factor may be a scalar or a quad of variance multipliers.
 
 -f, --filter nimpure:ncycle:threshold [default: no filtering]
 	Use purity filtering on generated intensities, allowing a maximum of
@@ -102,7 +109,6 @@ For "cycle" reads are treated as paired-end but the results are reported
 in machine cycle order (the second end is reverse complemented and
 appended to first). The "paired" option splits the two ends of the read
 into separate records, indicated by a suffix /1 or /2 to the read name.
-The second end is reported in the same orientation as the first.
 
 For single-ended runs treated as paired, the covariance matrix is
 duplicated to make two uncorrelated pairs with identical error

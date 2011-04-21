@@ -206,7 +206,7 @@ MODEL new_MODEL_from_fp( FILE * fp){
     return model;
 }
 
-MODEL trim_MODEL(const uint32_t ncycle, const MODEL model){
+MODEL trim_MODEL(const uint32_t ncycle, real_t final_factor[4], const MODEL model){
 	MODEL newmod = NULL;
 	MAT trimmedVar1=NULL, trimmedVar2=NULL;
 	validate(NULL!=model,NULL);
@@ -215,6 +215,40 @@ MODEL trim_MODEL(const uint32_t ncycle, const MODEL model){
 	if(NULL==trimmedVar1){ goto cleanup; }
 	trimmedVar2 = copy_MAT(trim_MAT(model->cov2,NBASE*ncycle,NBASE*ncycle,true));
         if(NULL!=model->cov2 && NULL==trimmedVar2){ goto cleanup; }
+
+	// Alter covariance matrices
+	if(final_factor[0]==-1.0){
+		if(ncycle==model->ncycle){
+			// If number of cycles match, don't scale
+			final_factor[0] = final_factor[1] = final_factor[2] = final_factor[3] = 1.0;
+		} else {
+			// Learn scaling
+			const size_t off1 = model->ncycle * 4 - 4;
+			const size_t off2 = model->ncycle * 4 - 8;
+			for ( int i=0 ; i<4 ; i++){
+				final_factor[i] = model->cov1->x[(off1+i)*4*model->ncycle + off1+i] / model->cov1->x[(off2+i)*4*model->ncycle + off2+i];
+				if(NULL!=model->cov2){
+					final_factor[i] += model->cov2->x[(off1+i)*4*model->ncycle + off1+i] / model->cov2->x[(off2+i)*4*model->ncycle + off2+i];
+					final_factor[i] /= 2;
+				}
+			}
+		}
+	}
+	// Scale matrices
+	fprintf(stderr,"Scaling varaince of final cycle by %f %f %f %f\n",final_factor[0] , final_factor[1] , final_factor[2] , final_factor[3] );
+	const size_t off = (ncycle * 4 - 4);
+	for ( int i=0 ; i<4 ; i++){
+		final_factor[i] = sqrt(final_factor[i]);
+		for ( int j=0 ; j<ncycle*4 ; j++){
+			trimmedVar1->x[(off+i)*4*ncycle+j] *= final_factor[i];
+			trimmedVar1->x[j*ncycle*4+off+i] *= final_factor[i];
+			if(NULL!=trimmedVar2){
+				trimmedVar2->x[(off+i)*4*ncycle+j] *= final_factor[i];
+				trimmedVar2->x[off+i+4*ncycle*j] *= final_factor[i];
+			}
+		}
+	}
+
 	newmod = new_MODEL(model->label,model->shape,model->scale,trimmedVar1,trimmedVar2);
 	if(NULL==newmod){goto cleanup;}
 

@@ -108,7 +108,7 @@ void fprint_usage( FILE * fp){
 "Simulate likelihoods for Illumina data from fasta format files\n"
 "\n"
 "Usage:\n"
-"\t" PROGNAME " [-a adapter] [-b shape:scale] [-c correlation] [-d]\n"
+"\t" PROGNAME " [-a adapter] [-b shape:scale] [-c correlation] [-d] [-F factor]\n"
 "\t       [-f nimpure:ncycle:threshold] [-i filename] [-j range:a:b]\n"
 "\t       [-l lane] [-m insertion:deletion:mutation] [-n ncycle]\n"
 "\t       [-o output_format] [-p option] [-q quantile] [-r mu] [-s seed]\n"
@@ -166,6 +166,11 @@ void fprint_help( FILE * fp){
 "\n"
 "-d, --describe\n"
 "\tPrint a description of the runfile and exit.\n"
+"\n"
+"-F, --final factor [default: see below]\n"
+"\tVariance adjustment for final cycle, derived from input covariance\n"
+"matrix by default if the number of cycles required is fewer than that described\n"
+"in the runfile or 1 if equal.\n"
 "\n"
 "-f, --filter nimpure:ncycle:threshold [default: no filtering]\n"
 "\tUse purity filtering on generated intensities, allowing a maximum of\n"
@@ -232,6 +237,7 @@ static struct option longopts[] = {
     { "brightness", required_argument, NULL, 'b' },
     { "correlation", required_argument, NULL, 'c' },
     { "describe",   no_argument,       NULL, 'd' },
+    { "final",      required_argument, NULL, 'F' },
     { "filter",     required_argument, NULL, 'f' },
     { "intensities", required_argument, NULL, 'i'},
     { "jumble",     required_argument, NULL, 'j' },
@@ -288,6 +294,7 @@ typedef struct {
     enum paired_type paired;
     bool desc;
     real_t mu,sdfact;
+    real_t final_factor[4];
     uint32_t seed;
     uint32_t tile,lane;
     real_t purity_threshold;
@@ -316,6 +323,7 @@ SIMOPT new_SIMOPT(void){
     opt->mu = 0.0;
     opt->seed = 0;
     opt->sdfact = 1.0;
+    opt->final_factor[0] = -1.0;
     opt->tile = 0;
     opt->lane = 0;
     opt->purity_threshold = 0.;
@@ -393,7 +401,7 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
     SIMOPT simopt = new_SIMOPT();
     validate(NULL!=simopt,NULL);
     
-    while ((ch = getopt_long(argc, argv, "a:b:c:df:i:j:l:m:n:o:p:q:r:s:t:uv:h", longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "a:b:c:dF:f:i:j:l:m:n:o:p:q:r:s:t:uv:h", longopts, NULL)) != -1){
         int ret;
         unsigned long int i=0,j=0;
         switch(ch){
@@ -410,6 +418,19 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
                     break;
         case 'd':   simopt->desc = true;
                     break;
+	case 'F':   ret = sscanf(optarg, real_format_str ":" real_format_str ":" real_format_str ":" real_format_str ,&simopt->final_factor[0],&simopt->final_factor[1],&simopt->final_factor[2],&simopt->final_factor[3]);
+		    if(ret!=4 && ret!=1){ errx(EXIT_FAILURE,"Incorrect number of arguments for final variance."); }
+		    if(1==ret){
+			    // If only read one double, copy over
+			    simopt->final_factor[1] = simopt->final_factor[2] = simopt->final_factor[3] = simopt->final_factor[0];
+		    }
+		    if( simopt->final_factor[0]<=0.0 ||
+		        simopt->final_factor[1]<=0.0 ||
+			simopt->final_factor[2]<=0.0 ||
+			simopt->final_factor[3]<=0.0 ){
+		            errx(EXIT_FAILURE,"Arguments for final variance muct be positive.");
+		    }
+		    break;
         case 'f':   ret = sscanf(optarg, "%lu:%lu:" real_format_str,&i,&j,&simopt->purity_threshold);
                     if(ret!=3){ errx(EXIT_FAILURE,"Insufficient arguments for filtering.");}
                     simopt->purity_max = i;
@@ -814,17 +835,18 @@ int main( int argc, char * argv[] ){
         }
     }
     
-    if(simopt->ncycle!=0){
-        if(simopt->ncycle>model->ncycle){
-            fprintf(stderr,"Asked for more cycles than runfile allows. Doing %u.\n",model->ncycle);
-        } else {
-            MODEL newmodel = trim_MODEL(simopt->ncycle,model);
-            free_MODEL(model);
-            model = newmodel; 
-        }
+    if(simopt->ncycle==0){
+	    simopt->ncycle = model->ncycle;
     }
-    simopt->ncycle = model->ncycle;
-    
+
+    if(simopt->ncycle>model->ncycle){
+        fprintf(stderr,"Asked for more cycles than runfile allows. Doing %u.\n",model->ncycle);
+    } else {
+        MODEL newmodel = trim_MODEL(simopt->ncycle,simopt->final_factor,model);
+        free_MODEL(model);
+        model = newmodel; 
+    }
+
     // Initialise random number generator
     if ( simopt->seed==0 ){
         uint32_t seed = (uint32_t) time(NULL);
