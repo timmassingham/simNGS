@@ -190,10 +190,12 @@ void fprint_help( FILE * fp){
 "-l, --lane lane [default: as runfile]\n"
 "\tSet lane number\n"
 "\n"
-"-m, --mutate insertion:deletion:mutation [default: no mutation]\n"
+"-m, --mutate, --mutate=insertion:deletion:mutation [default: 1e-5:1e-6:1e-4]\n"
 "\tSimple model of sequence mutation to reflect sample preparation errors.\n"
-"Each sequence read in is transformed by a simple automata which inserts,"
-"deletes or mutates bases with the specified probabilities.\n"
+"When the -m or --mutate options are given without an argument, the mutational\n"
+"process is turned off otherwise the default parameters are used.\n"
+"An alternative process of mutation may be specified using the format:\n"
+"\t--mutate=1e-5:1e-6:1e-4\n"
 "\n"
 "-n, --ncycles ncycles [default: as runfile]\n"
 "\tNumber of cycles to do, up to maximum allowed for runfile.\n"
@@ -242,7 +244,7 @@ static struct option longopts[] = {
     { "intensities", required_argument, NULL, 'i'},
     { "jumble",     required_argument, NULL, 'j' },
     { "lane",       required_argument, NULL, 'l' },
-    { "mutate",     required_argument, NULL, 'm' },
+    { "mutate",     optional_argument, NULL, 'm' },
     { "ncycle",     required_argument, NULL, 'n' },
     { "output",     required_argument, NULL, 'o' },
     { "paired",     required_argument, NULL, 'p' },
@@ -320,7 +322,7 @@ SIMOPT new_SIMOPT(void){
     opt->threshold = 0.0;
     opt->paired = PAIRED_TYPE_SINGLE;
     opt->desc = false;
-    opt->mu = 1.0e-5;
+    opt->mu = -1.0;
     opt->seed = 0;
     opt->sdfact = 1.0;
     opt->final_factor[0] = -1.0;
@@ -331,8 +333,8 @@ SIMOPT new_SIMOPT(void){
     opt->purity_max = 0;
     opt->intensity_fn = NULL;
     opt->format = OUTPUT_FASTQ;
-    opt->mutate = false;
-    opt->ins=0.; opt->del=0.; opt->mut=0.;
+    opt->mutate = true;
+    opt->ins=1e-5; opt->del=1e-6; opt->mut=1e-4;
     opt->jumble = false;
     opt->bufflen = 1; opt->a=0.; opt->b=0;
     opt->adapter = nucs_from_string(ILLUMINA_ADAPTER);
@@ -401,7 +403,7 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
     SIMOPT simopt = new_SIMOPT();
     validate(NULL!=simopt,NULL);
     
-    while ((ch = getopt_long(argc, argv, "a:b:c:dF:f:i:j:l:m:n:o:p:q:r:s:t:uv:h", longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "a:b:c:dF:f:i:j:l:mn:o:p:q:r:s:t:uv:h", longopts, NULL)) != -1){
         int ret;
         unsigned long int i=0,j=0;
         switch(ch){
@@ -454,15 +456,21 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
         case 'l':   simopt->lane = parse_uint(optarg);
                     if(simopt->lane==0){errx(EXIT_FAILURE,"Lane number must be greater than zero.");}
                     break;
-        case 'm':   ret = sscanf(optarg, real_format_str ":" real_format_str ":" real_format_str,&simopt->ins,&simopt->del,&simopt->mut);
-                    if( ret!=3 ){ errx(EXIT_FAILURE,"Insufficient arguments for mutation.");}
-                    if(!isprob(simopt->ins) || !isprob(simopt->del) || !isprob(simopt->mut) ){
-                        errx(EXIT_FAILURE,"Mutation parameters not probabilities. Given: ins %f, del %f, mut %f",simopt->ins,simopt->del,simopt->mut);
-                    }
-                    if(simopt->ins+simopt->del+simopt->mut>1.0){
-                        errx(EXIT_FAILURE,"Mutation parameters sum to greater than one.");
-                    }
-                    simopt->mutate = true;
+        case 'm':   if(NULL==optarg){ // No optional argument
+			    simopt->mutate = false;
+			    simopt->ins = simopt->del = simopt->mut = 0.0;
+		    } // Optional argument present
+		    else {
+		    	ret = sscanf(optarg, real_format_str ":" real_format_str ":" real_format_str,&simopt->ins,&simopt->del,&simopt->mut);
+                    	if( ret!=3 ){ errx(EXIT_FAILURE,"Insufficient arguments for mutation.");}
+                    	if(!isprob(simopt->ins) || !isprob(simopt->del) || !isprob(simopt->mut) ){
+                        	errx(EXIT_FAILURE,"Mutation parameters not probabilities. Given: ins %f, del %f, mut %f",simopt->ins,simopt->del,simopt->mut);
+                    	}
+                    	if(simopt->ins+simopt->del+simopt->mut>1.0){
+                        	errx(EXIT_FAILURE,"Mutation parameters sum to greater than one.");
+                    	}
+                    	simopt->mutate = true;
+		    }
                     break;   
         case 'n':   sscanf(optarg,"%u",&simopt->ncycle);
                     if(simopt->ncycle==0){errx(EXIT_FAILURE,"Number of cycles to simulate must be greater than zero.");}
@@ -818,6 +826,10 @@ int main( int argc, char * argv[] ){
     simopt->shape = model->shape;
     if(simopt->scale!=0){ model->scale = simopt->scale;}
     simopt->scale = model->scale;
+    if(simopt->mu==-1.0){
+	    simopt->mu = (simopt->mutate)?simopt->mut:0.0;
+    }
+
     
     if(model->paired && simopt->paired==PAIRED_TYPE_SINGLE){
         fputs("Treating paired-end model as single-ended.\n",stderr);

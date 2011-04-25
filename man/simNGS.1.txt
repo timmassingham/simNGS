@@ -118,13 +118,18 @@ last <range> are mixed with each other; if there where less than
         Set lane number in the output to "lane". Lane number must be 
 greater than zero but need not be a number valid for a real machine.
 
-*-m, --mutate* insertion:deletion:mutation [default: no mutation]::
+*-m, --mutate, --mutate=insertion:deletion:mutation [default: 1e-5:1e-6:1e-4]::
         Simple model of sequence mutation to reflect sample preparation
 errors.  Each sequence read in is transformed by a simple automata 
 which walks the input sequence and deletes or mutates bases with the 
 specified probabilities.  Inserts are chosen uniformly from ACGT, 
 mutations are chosen uniformly from the bases different from that 
 present in the original sequence.
+	When the -m or --mutate options are given without an argument, 
+the mutational process is turned off otherwise the default parameters 
+are used.  An alternative process of mutation may be specified using the 
+format::
+	--mutate=1e-5:1e-6:1e-4
 
 *-n, --ncycle* ncycle [default: as runfile]::
         Number of cycles to generate likelihoods for, up to maximum 
