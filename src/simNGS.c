@@ -111,7 +111,7 @@ void fprint_usage( FILE * fp){
 "\n"
 "Usage:\n"
 "\t" PROGNAME " [-a adapter] [-b shape:scale] [-c correlation] [-d] [-D prob]\n"
-"\t       [-f nimpure:ncycle:threshold] [-F factor] [-i filename] [-j range:a:b]\n"
+"\t       [-f nimpure:ncycle:threshold] [-F factor] [-i filename] [-I] [-j range:a:b]\n"
 "\t       [-l lane] [-m] [-M matrix file] [-N noise file] [-n ncycle]\n"
 "\t       [-o output_format] [-p option] [-P phasing file] [-q quantile] [-r mu] [-s seed]\n"
 "\t       [-t tile] [-v factor ] runfile [seq.fa ... ]\n"
@@ -185,6 +185,11 @@ void fprint_help( FILE * fp){
 "\n"
 "-i, --intensities filename [default: none]\n"
 "\tWrite the processed intensities generated to \"filename\".\n"
+"\n"
+"-I, --illumina\n"
+"\tProduce Illumina scaled quality values where required. Ascii\n"
+"representation of quality value is ascii(quality+64) rather than the more\n"
+"usual ascii(quality+33).\n"
 "\n"
 "-j, --jumble range:a:b [default: none]\n"
 "\tJumble generated intensities with those of other reads, simulating cases\n"
@@ -262,6 +267,7 @@ static struct option longopts[] = {
     { "final",      required_argument, NULL, 'F' },
     { "filter",     required_argument, NULL, 'f' },
     { "intensities", required_argument, NULL, 'i'},
+    { "illumina",   no_argument,       NULL, 'I' },
     { "jumble",     required_argument, NULL, 'j' },
     { "lane",       required_argument, NULL, 'l' },
     { "mutate",     optional_argument, NULL, 'm' },
@@ -335,6 +341,7 @@ typedef struct {
     real_t dustProb;
     MAT M,P,N;
     MAT invM,invP;
+    bool illumina;
 } * SIMOPT;
 
 SIMOPT new_SIMOPT(void){
@@ -367,6 +374,7 @@ SIMOPT new_SIMOPT(void){
     opt->dustProb = 0.0;
     opt->M = opt->P = opt->N = NULL;
     opt->invM = opt->invP = NULL;
+    opt->illumina = false;
     return opt;
 }
 
@@ -431,7 +439,7 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
     SIMOPT simopt = new_SIMOPT();
     validate(NULL!=simopt,NULL);
     
-    while ((ch = getopt_long(argc, argv, "a:b:c:dD:F:f:i:j:l:mM:n:N:o:p:P:q:r:s:t:uv:h", longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "a:b:c:dD:F:f:i:Ij:l:mM:n:N:o:p:P:q:r:s:t:uv:h", longopts, NULL)) != -1){
         int ret;
         unsigned long int i=0,j=0;
         switch(ch){
@@ -484,6 +492,8 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
                     }
                     simopt->jumble = true;
                     break;
+	case 'I':   simopt->illumina = true;
+		    break;
         case 'l':   simopt->lane = parse_uint(optarg);
                     if(simopt->lane==0){errx(EXIT_FAILURE,"Lane number must be greater than zero.");}
                     break;
@@ -758,7 +768,7 @@ CALLED process_intensities( const MAT intensities, const real_t lambda, const MA
     cl->intensities = intensities;
     cl->loglike = likelihood_cycle_intensities(simopt->sdfact,simopt->mu,lambda,intensities,invchol,NULL);
     cl->calls = call_by_maximum_likelihood(cl->loglike,cl->calls);
-    cl->quals = quality_from_likelihood(cl->loglike,cl->calls,cl->quals);
+    cl->quals = quality_from_likelihood(cl->loglike,cl->calls,simopt->illumina,cl->quals);
     cl->pass_filter = number_inpure_cycles(intensities,simopt->purity_threshold,simopt->purity_cycles) <= simopt->purity_max;
     return cl;
 }

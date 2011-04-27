@@ -433,7 +433,7 @@ ARRAY(NUC) call_by_maximum_likelihood(const MAT likelihood, ARRAY(NUC) calls){
     return calls;
 }
 
-ARRAY(PHREDCHAR) quality_from_likelihood(const MAT likelihood, const ARRAY(NUC) calls, ARRAY(PHREDCHAR) quals){
+ARRAY(PHREDCHAR) quality_from_likelihood(const MAT likelihood, const ARRAY(NUC) calls, const bool doIllumina, ARRAY(PHREDCHAR) quals){
     validate(NULL!=likelihood,null_ARRAY(PHREDCHAR));
     validate(NULL!=calls.elt,null_ARRAY(PHREDCHAR));
     validate(NBASE==likelihood->nrow,null_ARRAY(PHREDCHAR));
@@ -451,7 +451,7 @@ ARRAY(PHREDCHAR) quality_from_likelihood(const MAT likelihood, const ARRAY(NUC) 
         for( uint32_t b=0 ; b<NBASE ; b++){
             tot += exp(ml-likelihood->x[cycle*NBASE+b]);
         }
-        quals.elt[cycle] = phredchar_from_prob(1./tot);
+        quals.elt[cycle] = phredchar_from_prob(1./tot,doIllumina);
     }
     return quals;
 }

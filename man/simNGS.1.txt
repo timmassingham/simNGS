@@ -10,10 +10,11 @@ Illumina sequencing platform
 SYNOPSIS
 --------
 *simNGS*  [-a adapter] [-b shape:scale] [-c correlation] [-d] [-D prob]
-          [-F factor] [-f nimpure:ncycle:threshold] [-i filename] [-j range:a:b]
-          [-l lane] [-m [insertion:deletion:mutation]] [-M file] [-n ncycle]
-          [-N file] [-o output_format] [-p option] [-P file] [-q quantile] 
-          [-r mu] [-s seed] [-t tile] [-v factor ] runfile [seq.fa ... ]
+          [-F factor] [-f nimpure:ncycle:threshold] [-i filename] [-I] 
+          [-j range:a:b] [-l lane] [-m [insertion:deletion:mutation]] 
+          [-M file] [-n ncycle] [-N file] [-o output_format] [-p option] 
+          [-P file] [-q quantile] [-r mu] [-s seed] [-t tile] 
+          [-v factor ] runfile [seq.fa ... ]
 
 
 *simNGS* --help
@@ -107,6 +108,11 @@ second greatest is N then the purity is M / (M+N).
         Write (processed) intensities to "filename" in a format 
 identical to that as the likelihoods but with each likelihood replaced 
 by its corresponding intensity.
+
+*-I, --illumina*::
+	Produce Illumina scaled quality values where required. Ascii
+representation of quality value is ascii(quality+64) rather than the more
+usual ascii(quality+33).
 
 *-j, --jumble* range:a:b [default: none]::
     Jumble generated intensities with those of other reads, simulating

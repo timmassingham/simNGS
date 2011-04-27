@@ -119,9 +119,9 @@ PHREDCHAR phredchar_from_char( const char c){
     return c;
 }
 
-PHREDCHAR phredchar_from_prob( real_t p){
+PHREDCHAR phredchar_from_prob( real_t p, const bool doIllumina){
     validate(isprob(p),ERR_PHRED);
-    real_t c = 33-10*log1p(-p)/log(10);
+    real_t c = ((doIllumina)?64:33) - 10*log1p(-p)/log(10);
     if(c<MIN_PHRED){c=MIN_PHRED;}
     if(c>MAX_PHRED){c=MAX_PHRED;}
     return (PHREDCHAR)(c+0.5);

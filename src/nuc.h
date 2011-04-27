@@ -61,7 +61,7 @@ NUC complement(const NUC nuc);
 ARRAY(NUC) reverse_complement(const ARRAY(NUC) nucs);
 ARRAY(PHREDCHAR) reverse_quality(const ARRAY(PHREDCHAR) quals);
 PHREDCHAR phredchar_from_char( const char c);
-PHREDCHAR phredchar_from_prob( real_t p);
+PHREDCHAR phredchar_from_prob( real_t p, const bool doIllumina);
 NUC random_NUC(void);
 NUC random_other_NUC(const NUC nuc);
 
