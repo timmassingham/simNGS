@@ -102,10 +102,23 @@ void free_MAT ( MAT mat ){
 /* Assumed number of rows is first, followed by number of columns.
  * Easily changed by switching nrow and ncol where indicated.
  */
-MAT new_MAT_from_fp (FILE * fp, const uint32_t nrow, const uint32_t ncol ){
+MAT new_MAT_from_fp (FILE * fp, unsigned int nrow, unsigned int ncol){
     if ( NULL==fp){
         warn("Reading from NULL file handle at %s:%d\n",__FILE__,__LINE__);
     }
+    if((0==nrow) ^ (0==ncol)){
+        warn("Only one of nrow and ncol is zero in %s.",__func__);
+    }
+
+    // First line contains number of rows and columns
+    if(0==nrow || 0==ncol){
+    	int ret = fscanf(fp,"%u%u",&nrow,&ncol);
+    	if(ret!=2){
+            warnx("Failed to read number of rows and columns from matrix file");
+	    return NULL;
+	}
+    }
+
     const unsigned int nelt = nrow*ncol;
     MAT mat = new_MAT(nrow,ncol);
     if ( NULL==mat){ return NULL;}
@@ -127,7 +140,7 @@ MAT new_MAT_from_fp (FILE * fp, const uint32_t nrow, const uint32_t ncol ){
 /* Read matrix from a given file in the format specified in document (document
  * reference).
  */
-MAT new_MAT_from_file ( const char * filename, const uint32_t nrow, const uint32_t ncol ){
+MAT new_MAT_from_file ( const char * filename, unsigned int nrow, unsigned int ncol ){
     /* Open file.
      * If NULL is given as filename, assume stdin
      */
@@ -362,3 +375,34 @@ MAT scale_MAT(MAT mat, const real_t f){
     }
     return mat;
 }
+
+MAT invert_MAT(const MAT mat){
+    validate(NULL!=mat,NULL);
+    validate(mat->nrow==mat->ncol,NULL);
+   
+    int INFO;
+    int N;
+    int * IPIV=NULL;
+    int LWORK=0;
+    real_t * WORK=NULL,WORKSIZE=0;
+   
+    N = mat->nrow;
+    // Get temporary memory for inversion
+    LWORK = -1;
+    getri(&N,mat->x,&N,IPIV,&WORKSIZE,&LWORK,&INFO);
+    LWORK=(int)WORKSIZE;
+    WORK = malloc(LWORK*sizeof(real_t));
+    IPIV = malloc(N*sizeof(int));
+   
+    MAT matinv = copy_MAT(mat);
+    // LU decomposition required for inversion
+    getrf(&N,&N,matinv->x,&N,IPIV,&INFO);
+    // Invert
+    getri(&N,matinv->x,&N,IPIV,WORK,&LWORK,&INFO);
+
+    free(IPIV);
+    free(WORK);
+
+    return matinv;
+}
+

@@ -37,6 +37,8 @@
 #include "kumaraswamy.h"
 
 
+#define DEFAULT_DUST_PROB 1e-5
+#define STRINGIFY(A) #A
 #define ILLUMINA_ADAPTER "AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGAT"
 #define PROGNAME "simNGS"
 #define PROGVERSION "1.2.3"
@@ -108,10 +110,10 @@ void fprint_usage( FILE * fp){
 "Simulate likelihoods for Illumina data from fasta format files\n"
 "\n"
 "Usage:\n"
-"\t" PROGNAME " [-a adapter] [-b shape:scale] [-c correlation] [-d] [-F factor]\n"
-"\t       [-f nimpure:ncycle:threshold] [-i filename] [-j range:a:b]\n"
-"\t       [-l lane] [-m insertion:deletion:mutation] [-n ncycle]\n"
-"\t       [-o output_format] [-p option] [-q quantile] [-r mu] [-s seed]\n"
+"\t" PROGNAME " [-a adapter] [-b shape:scale] [-c correlation] [-d] [-D prob]\n"
+"\t       [-f nimpure:ncycle:threshold] [-F factor] [-i filename] [-j range:a:b]\n"
+"\t       [-l lane] [-m] [-M matrix file] [-N noise file] [-n ncycle]\n"
+"\t       [-o output_format] [-p option] [-P phasing file] [-q quantile] [-r mu] [-s seed]\n"
 "\t       [-t tile] [-v factor ] runfile [seq.fa ... ]\n"
 "\t" PROGNAME " --help\n"
 "\t" PROGNAME " --licence\n"
@@ -167,14 +169,19 @@ void fprint_help( FILE * fp){
 "-d, --describe\n"
 "\tPrint a description of the runfile and exit.\n"
 "\n"
-"-F, --final factor [default: see below]\n"
-"\tVariance adjustment for final cycle, derived from input covariance\n"
-"matrix by default if the number of cycles required is fewer than that described\n"
-"in the runfile or 1 if equal.\n"
+"-D, --dust probability [default: no dust]\n"
+"\tProbability of dust occurring on a particular cycle, resulting in\n"
+"extremely bright observations in the second channel. Cross-talk, phasing and noise\n"
+"matrices must be specified. A value of 1e-5 is typical.\n"
 "\n"
 "-f, --filter nimpure:ncycle:threshold [default: no filtering]\n"
 "\tUse purity filtering on generated intensities, allowing a maximum of\n"
 "nimpure cyles in the first ncycles with a purity greater than threshold.\n"
+"\n"
+"-F, --final factor [default: see below]\n"
+"\tVariance adjustment for final cycle, derived from input covariance\n"
+"matrix by default if the number of cycles required is fewer than that described\n"
+"in the runfile or 1 if equal.\n"
 "\n"
 "-i, --intensities filename [default: none]\n"
 "\tWrite the processed intensities generated to \"filename\".\n"
@@ -197,8 +204,16 @@ void fprint_help( FILE * fp){
 "An alternative process of mutation may be specified using the format:\n"
 "\t--mutate=1e-5:1e-6:1e-4\n"
 "\n"
+"-M, --matrix filename [default: none]\n"
+"\tFile to read cross-talk matrix from. Not required for general\n"
+"simulation of sequence and qualities.\n"
+"\n"
 "-n, --ncycles ncycles [default: as runfile]\n"
 "\tNumber of cycles to do, up to maximum allowed for runfile.\n"
+"\n"
+"-N, --noise filename [default: none]\n"
+"\tFile to read systematic noise matrix from. Not required for general\n"
+"simulation of sequence and qualities.\n"
 "\n"
 "-o, --output format [default: likelihood]\n"
 "\tFormat in which to output results. Either \"likelihood\", \"fasta\",\n"
@@ -214,6 +229,10 @@ void fprint_help( FILE * fp){
 "end is reported in the same orientation as the first.\n"
 "For single-ended runs treated as paired, the covariance matrix is\n"
 "duplicated to make two uncorrelated pairs.\n"
+"\n"
+"-P, --phasing filename [default: none]\n"
+"\tFile to read phasing matrix from. Not required for general\n"
+"simulation of sequence and qualities.\n"
 "\n"
 "-q, --quantile quantile [default: 0]\n"
 "\tQuantile below which cluster brightness is discarded and redrawn from\n"
@@ -239,15 +258,19 @@ static struct option longopts[] = {
     { "brightness", required_argument, NULL, 'b' },
     { "correlation", required_argument, NULL, 'c' },
     { "describe",   no_argument,       NULL, 'd' },
+    { "dust",       required_argument, NULL, 'D' },
     { "final",      required_argument, NULL, 'F' },
     { "filter",     required_argument, NULL, 'f' },
     { "intensities", required_argument, NULL, 'i'},
     { "jumble",     required_argument, NULL, 'j' },
     { "lane",       required_argument, NULL, 'l' },
     { "mutate",     optional_argument, NULL, 'm' },
+    { "matrix",	    required_argument, NULL, 'M' },
     { "ncycle",     required_argument, NULL, 'n' },
+    { "noise",      required_argument, NULL, 'N' },
     { "output",     required_argument, NULL, 'o' },
     { "paired",     required_argument, NULL, 'p' },
+    { "phasing",    required_argument, NULL, 'P' },
     { "quantile",   required_argument, NULL, 'q' },
     { "robust",     required_argument, NULL, 'r' },
     { "seed",       required_argument, NULL, 's' },
@@ -309,6 +332,9 @@ typedef struct {
     uint32_t bufflen;
     real_t a,b;
     ARRAY(NUC) adapter;
+    real_t dustProb;
+    MAT M,P,N;
+    MAT invM,invP;
 } * SIMOPT;
 
 SIMOPT new_SIMOPT(void){
@@ -338,7 +364,9 @@ SIMOPT new_SIMOPT(void){
     opt->jumble = false;
     opt->bufflen = 1; opt->a=0.; opt->b=0;
     opt->adapter = nucs_from_string(ILLUMINA_ADAPTER);
-    
+    opt->dustProb = 0.0;
+    opt->M = opt->P = opt->N = NULL;
+    opt->invM = opt->invP = NULL;
     return opt;
 }
 
@@ -403,7 +431,7 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
     SIMOPT simopt = new_SIMOPT();
     validate(NULL!=simopt,NULL);
     
-    while ((ch = getopt_long(argc, argv, "a:b:c:dF:f:i:j:l:mn:o:p:q:r:s:t:uv:h", longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "a:b:c:dD:F:f:i:j:l:mM:n:N:o:p:P:q:r:s:t:uv:h", longopts, NULL)) != -1){
         int ret;
         unsigned long int i=0,j=0;
         switch(ch){
@@ -420,6 +448,9 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
                     break;
         case 'd':   simopt->desc = true;
                     break;
+	case 'D':   sscanf(optarg,"%f",&simopt->dustProb);
+		    if(simopt->dustProb<0.0 || simopt->dustProb>1.0){errx(EXIT_FAILURE,"Dust probability should be in [0,1]. Was given %f.",simopt->dustProb);}
+		    break;
 	case 'F':   ret = sscanf(optarg, real_format_str ":" real_format_str ":" real_format_str ":" real_format_str ,&simopt->final_factor[0],&simopt->final_factor[1],&simopt->final_factor[2],&simopt->final_factor[3]);
 		    if(ret!=4 && ret!=1){ errx(EXIT_FAILURE,"Incorrect number of arguments for final variance."); }
 		    if(1==ret){
@@ -471,10 +502,16 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
                     	}
                     	simopt->mutate = true;
 		    }
-                    break;   
+                    break;
+        case 'M':   simopt->M = new_MAT_from_file(optarg,0,0);
+		    if(NULL==simopt->M){ errx(EXIT_FAILURE,"Failed to read cross-talk matrix from file %s",optarg); }
+		    break;
         case 'n':   sscanf(optarg,"%u",&simopt->ncycle);
                     if(simopt->ncycle==0){errx(EXIT_FAILURE,"Number of cycles to simulate must be greater than zero.");}
                     break;
+        case 'N':   simopt->M = new_MAT_from_file(optarg,0,0);
+		    if(NULL==simopt->M){ errx(EXIT_FAILURE,"Failed to read noise matrix from file %s",optarg); }
+		    break;
         case 'o':   if( strcasecmp(optarg,output_format_str[OUTPUT_LIKE])==0 ){ simopt->format = OUTPUT_LIKE; }
                     else if ( strcasecmp(optarg,output_format_str[OUTPUT_FASTA])==0 ){ simopt->format = OUTPUT_FASTA; }
                     else if ( strcasecmp(optarg,output_format_str[OUTPUT_FASTQ])==0 ){
@@ -494,6 +531,9 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
                         errx(EXIT_FAILURE,"Unrecognised paired option %s.",optarg);
                     }
                     break;
+        case 'P':   simopt->P = new_MAT_from_file(optarg,0,0);
+		    if(NULL==simopt->P){ errx(EXIT_FAILURE,"Failed to read phasing matrix from file %s",optarg); }
+	            break;
         case 'q':   simopt->threshold = parse_real(optarg);
                     if(!isprob(simopt->threshold) ){ 
                        errx(EXIT_FAILURE,"Threshold quantile to discard brightness must be a probability (got %e)\n",simopt->threshold);
@@ -829,6 +869,33 @@ int main( int argc, char * argv[] ){
     if(simopt->mu==-1.0){
 	    simopt->mu = (simopt->mutate)?simopt->mut:0.0;
     }
+    // Dust simulation requires phasing, cross-talk and noise matrices
+    if(0.0!=simopt->dustProb){
+        if(NULL==simopt->M || NULL==simopt->P || NULL==simopt->N){
+	    errx(EXIT_FAILURE,"Cross-talk, phasing and noise matrices required to simulate dust");
+	}
+    }
+    // Check that M, P and N dimensions are consistent with run file
+    if(NULL!=simopt->M){
+        if(NBASE!=simopt->M->nrow || NBASE!=simopt->M->ncol){
+            errx(EXIT_FAILURE,"Cross-talk matrix has wrong dimension, got %d,%d",simopt->M->nrow,simopt->M->ncol);
+	}
+	// Want inverse for calculations
+	simopt->invM = invert_MAT(simopt->M);
+    }
+    if(NULL!=simopt->P){
+        if(model->ncycle!=simopt->P->nrow || model->ncycle!=simopt->P->ncol){
+	    errx(EXIT_FAILURE,"Phasing matrix has wrong dimension, got %d,%d",simopt->P->nrow,simopt->P->ncol);
+	}
+	// Want inverse for calculations
+	simopt->invP = invert_MAT(simopt->P);
+    }
+    if(NULL!=simopt->N){
+	if(NBASE!=simopt->N->nrow || model->ncycle!=simopt->N->ncol){
+	    errx(EXIT_FAILURE,"Systematic noise matrix has wrong dimension, got %d,%d",simopt->N->nrow,simopt->N->ncol);
+	}
+    }
+
 
     
     if(model->paired && simopt->paired==PAIRED_TYPE_SINGLE){
@@ -919,10 +986,10 @@ int main( int argc, char * argv[] ){
             seqstr->lambda1 = lambda.x1;
             seqstr->lambda2 = lambda.x2;
             // Generate intensities
-            seqstr->int1 = generate_pure_intensities(simopt->sdfact,lambda.x1,seqstr->seq,simopt->adapter,model->ncycle,model->chol1,NULL);
+            seqstr->int1 = generate_pure_intensities(simopt->sdfact,lambda.x1,seqstr->seq,simopt->adapter,model->ncycle,model->chol1,simopt->dustProb,simopt->invM,simopt->invP,simopt->N,NULL);
             if ( model->paired ){
                 seqstr->rcseq = reverse_complement(seqstr->seq);
-                seqstr->int2 = generate_pure_intensities(simopt->sdfact,lambda.x2,seqstr->rcseq,simopt->adapter,model->ncycle,model->chol2,NULL);
+                seqstr->int2 = generate_pure_intensities(simopt->sdfact,lambda.x2,seqstr->rcseq,simopt->adapter,model->ncycle,model->chol2,simopt->dustProb,simopt->invM,simopt->invP,simopt->N,NULL);
             }
             // Store in buffer
             SEQSTR popped = push_circbuff_SEQSTR(circbuff,seqstr);

@@ -24,6 +24,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include "intensities.h"
+#include "random.h"
 #include "nuc.h"
 #include "normal.h"
 
@@ -272,7 +273,10 @@ MODEL new_MODEL_from_file( const CSTRING filename ){
 }
 
 
-MAT generate_pure_intensities ( const real_t sdfact, const real_t lambda, const ARRAY(NUC) seq, const ARRAY(NUC) adapter, const uint32_t ncycle, const MAT chol, MAT ints){
+MAT generate_pure_intensities ( 
+    const real_t sdfact, const real_t lambda, const ARRAY(NUC) seq, 
+    const ARRAY(NUC) adapter, const uint32_t ncycle, const MAT chol, 
+    const real_t dustProb, const MAT invM, const MAT invP, const MAT N, MAT ints){
     validate(NULL!=seq.elt,NULL);
     validate(NULL!=chol,NULL);
     if(NULL==ints){
@@ -293,6 +297,20 @@ MAT generate_pure_intensities ( const real_t sdfact, const real_t lambda, const 
                 ints->x[NBASE*i+adapter.elt[j]] += lambda;
             }
         }
+    }
+
+    // Add dust if required.
+    if(0.0!=dustProb){
+        real_t u = runif();
+	if(u<dustProb){
+	    const int cy = (int)(ncycle * u / dustProb);
+	    const real_t dustval = lambda*10.0 - N->x[cy*NBASE+1];
+	    for(int i=0 ; i<ncycle ; i++){
+	        for ( int j=0 ; j<ncycle ; j++){
+		    ints->x[i*NBASE+j] += dustval * invM->x[4+j] * invP->x[j*ncycle+i];
+		}
+	    }
+	}
     }
     
     return ints;

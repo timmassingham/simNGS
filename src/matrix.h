@@ -49,8 +49,8 @@ MAT copyinto_MAT( MAT matout, const MAT matin);
 MAT new_MAT_from_array( const uint32_t nrow, const uint32_t ncol, const real_t * x);
 
 // Input, output
-MAT new_MAT_from_file( const char * filename, const uint32_t nrow, const uint32_t ncol );
-MAT new_MAT_from_fp(FILE * fp, const uint32_t nrow, const uint32_t ncol );
+MAT new_MAT_from_file( const char * filename, unsigned int nrow, unsigned int ncol);
+MAT new_MAT_from_fp(FILE * fp, unsigned int nrow, unsigned int ncol );
 void fprint_MAT( FILE * fp, const MAT mat);
 void show_MAT( FILE * fp, const MAT mat, const uint32_t mrow, const uint32_t mcol);
 
@@ -65,6 +65,7 @@ MAT vectranspose( const MAT mat, const unsigned int p );
 MAT reshape_MAT( MAT mat, const int nrow);
 MAT cholesky( MAT mat);
 MAT invert_cholesky( MAT mat);
+MAT invert_MAT(const MAT mat);
 MAT trim_MAT( MAT mat, const int mrow, const int mcol, const bool forwards);
 MAT * block_diagonal_MAT( const MAT mat, const int n);
 MAT scale_MAT(MAT mat, const real_t f);

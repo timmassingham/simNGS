@@ -9,11 +9,11 @@ Illumina sequencing platform
 
 SYNOPSIS
 --------
-*simNGS*  [-a adapter] [-b shape:scale] [-c correlation] [-d] [-F factor]
-          [-f nimpure:ncycle:threshold] [-i filename] [-j range:a:b]
-          [-l lane] [-m insertion:deletion:mutation] [-n ncycle]
-          [-o output_format] [-p option] [-q quantile] [-r mu] [-s seed]
-          [-t tile] [-v factor ] runfile [seq.fa ... ]
+*simNGS*  [-a adapter] [-b shape:scale] [-c correlation] [-d] [-D prob]
+          [-F factor] [-f nimpure:ncycle:threshold] [-i filename] [-j range:a:b]
+          [-l lane] [-m [insertion:deletion:mutation]] [-M file] [-n ncycle]
+          [-N file] [-o output_format] [-p option] [-P file] [-q quantile] 
+          [-r mu] [-s seed] [-t tile] [-v factor ] runfile [seq.fa ... ]
 
 
 *simNGS* --help
@@ -82,6 +82,11 @@ on the commandline, so its value should belong to [-1,1].
 *-d, --describe*::
         Print a description of the runfile and exit.
 
+*-D, --dust probability [default: no dust]*::
+	Probability of dust occurring on a particular cycle, resulting in
+extremely bright observations in the second channel. Cross-talk, phasing and 
+noise matrices must be specified. A value of 1e-5 is typical.
+
 *-F, --final factor [default: see text]*::
         Increase variance of noise for the final cycle by given factor.
 When the number of cycles to simulate is equal to that which the runfile
@@ -131,11 +136,19 @@ are used.  An alternative process of mutation may be specified using the
 format::
 	--mutate=1e-5:1e-6:1e-4
 
+*-M, --matrix filename [default: none]*::
+	File to read cross-talk matrix from. Not required for general
+simulation of sequence and qualities.
+
 *-n, --ncycle* ncycle [default: as runfile]::
         Number of cycles to generate likelihoods for, up to maximum 
 allowed in the runfile. If more cycles are asked for than allowed, a 
 warning is printed and the number of cycles outputted is restricted to 
 number specificed in the runfile.
+
+*-N, --noise filename [default: none]*::
+	File to read systematic noise matrix from. Not required for general
+simulation of sequence and qualities.
 
 *-o, --output* format [default: fastq]::
         Format in which to output results. Either "likelihood", 
@@ -165,6 +178,9 @@ and stored separately, implying an assumption of independence between the two
 ends. The brightness of the cluster is assumed to be equal for both ends, which
 can be changed using the *--correlation* option.
 
+*-P, --phasing filename [default: none]*::
+	File to read phasing matrix from. Not required for general
+simulation of sequence and qualities.
 
 *-q, --quantile* quantile [default: 0]::
         Quantile below which cluster brightness is discarded and 
