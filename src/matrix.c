@@ -406,3 +406,15 @@ MAT invert_MAT(const MAT mat){
     return matinv;
 }
 
+MAT transpose( const MAT mat){
+    validate(NULL!=mat,NULL);
+    MAT tmat = new_MAT(mat->ncol,mat->nrow);
+    validate(NULL!=tmat,NULL);
+    for ( uint32_t col=0 ; col<mat->ncol ; col++){
+        for ( uint32_t row=0 ; row<mat->nrow ; row++){
+            tmat->x[row*mat->ncol+col] = mat->x[col*mat->nrow+row];
+        }
+    }
+    return tmat;
+}
+

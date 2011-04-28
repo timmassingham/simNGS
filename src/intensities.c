@@ -306,10 +306,11 @@ MAT generate_pure_intensities (
 	    const int cy = (int)(ncycle * u / dustProb);
 	    const real_t dustval = lambda*10.0 - N->x[cy*NBASE+1];
 	    for(int i=0 ; i<ncycle ; i++){
-	        for ( int j=0 ; j<ncycle ; j++){
-		    ints->x[i*NBASE+j] += dustval * invM->x[4+j] * invP->x[j*ncycle+i];
+	        for ( int j=0 ; j<NBASE ; j++){
+		    ints->x[i*NBASE+j] += dustval * invM->x[4+j] * invP->x[i*ncycle+cy];
 		}
 	    }
+	    fprintf(stderr,"Dust at cycle %d\n",cy);
 	}
     }
     
@@ -483,6 +484,44 @@ uint32_t number_inpure_cycles( const MAT intensities, const real_t threshold, co
     }
     return count;
 }
+
+/**
+ * Produce raw intensities from simulated processed intensities.
+ * Based on process_intensities from AYB
+ */
+MAT unprocess_intensities(const MAT intensities, const MAT M_t, const MAT P_t, const MAT N, MAT p){
+    validate(NULL!=intensities,NULL);
+    validate(NULL!=M_t,NULL);
+    validate(NULL!=P_t,NULL);
+    validate(NULL!=N,NULL);
+    
+    const uint_fast32_t ncycle = P_t->nrow;
+    if(NULL==p){
+        p = new_MAT(NBASE,ncycle);
+        validate(NULL!=p,NULL);
+    }
+    bzero(p->x,p->nrow * p->ncol * sizeof(real_t));
+
+    for( uint_fast32_t icol=0 ; icol<ncycle ; icol++){    // Columns of Intensity
+        real_t dp[NBASE] = {0,0,0,0};
+        for( uint_fast32_t chan=0 ; chan<NBASE ; chan++){ // Channels
+            for ( uint_fast32_t base=0 ; base<NBASE ; base++){  // Bases (cols of M, rows of Minv_t)
+                dp[chan] += M_t->x[chan*NBASE+base] * intensities->x[icol*NBASE+base];
+            }
+        }
+        for ( uint_fast32_t pcol=0 ; pcol<ncycle ; pcol++){ // Columns of p
+            const real_t tmp = P_t->x[icol*ncycle+pcol];
+            for( uint_fast32_t chan=0 ; chan<NBASE ; chan++){
+                p->x[pcol*NBASE+chan] += tmp * dp[chan];
+            }
+        }
+        for ( uint_fast32_t chan=0 ; chan<NBASE ; chan++){
+            p->x[icol*NBASE+chan] += N->x[icol*NBASE+chan];
+        }
+    }
+    return p;
+}
+
 
 #ifdef TEST
 #include <stdlib.h>

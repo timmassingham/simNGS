@@ -37,7 +37,7 @@
 #include "kumaraswamy.h"
 
 
-#define DEFAULT_DUST_PROB 1e-5
+#define DEFAULT_DUST_PROB 0.0
 #define STRINGIFY(A) #A
 #define ILLUMINA_ADAPTER "AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGAT"
 #define PROGNAME "simNGS"
@@ -113,8 +113,8 @@ void fprint_usage( FILE * fp){
 "\t" PROGNAME " [-a adapter] [-b shape:scale] [-c correlation] [-d] [-D prob]\n"
 "\t       [-f nimpure:ncycle:threshold] [-F factor] [-i filename] [-I] [-j range:a:b]\n"
 "\t       [-l lane] [-m] [-M matrix file] [-N noise file] [-n ncycle]\n"
-"\t       [-o output_format] [-p option] [-P phasing file] [-q quantile] [-r mu] [-s seed]\n"
-"\t       [-t tile] [-v factor ] runfile [seq.fa ... ]\n"
+"\t       [-o output_format] [-p option] [-P phasing file] [-q quantile] [-r mu] [-R]\n"
+"\t       [-s seed] [-t tile] [-v factor ] runfile [seq.fa ... ]\n"
 "\t" PROGNAME " --help\n"
 "\t" PROGNAME " --licence\n"
 "\t" PROGNAME " --license\n"
@@ -171,8 +171,8 @@ void fprint_help( FILE * fp){
 "\n"
 "-D, --dust probability [default: no dust]\n"
 "\tProbability of dust occurring on a particular cycle, resulting in\n"
-"extremely bright observations in the second channel. Cross-talk, phasing and noise\n"
-"matrices must be specified. A value of 1e-5 is typical.\n"
+"extremely bright observations in the second \"C\" channel. Cross-talk, phasing\n"
+"and noise matrices must be specified. A value of 1e-5 is typical.\n"
 "\n"
 "-f, --filter nimpure:ncycle:threshold [default: no filtering]\n"
 "\tUse purity filtering on generated intensities, allowing a maximum of\n"
@@ -247,6 +247,9 @@ void fprint_help( FILE * fp){
 "\tCalculate robustified likelihood, equivalent to adding mu to every\n"
 "likelihood.\n"
 "\n"
+"-R, --raw\n"
+"\tDump raw intensities rather than processed intensities.\n"
+"\n"
 "-s, --seed seed [default: clock]\n"
 "\tSet seed from random number generator.\n"
 "\n"
@@ -279,6 +282,7 @@ static struct option longopts[] = {
     { "phasing",    required_argument, NULL, 'P' },
     { "quantile",   required_argument, NULL, 'q' },
     { "robust",     required_argument, NULL, 'r' },
+    { "raw",        no_argument,       NULL, 'R' },
     { "seed",       required_argument, NULL, 's' },
     { "tile",       required_argument, NULL, 't' },
     { "variance",   required_argument, NULL, 'v' },
@@ -340,8 +344,8 @@ typedef struct {
     ARRAY(NUC) adapter;
     real_t dustProb;
     MAT M,P,N;
-    MAT invM,invP;
-    bool illumina;
+    MAT invM,invP,Mt,Pt;
+    bool illumina,dumpRaw;
 } * SIMOPT;
 
 SIMOPT new_SIMOPT(void){
@@ -374,7 +378,9 @@ SIMOPT new_SIMOPT(void){
     opt->dustProb = 0.0;
     opt->M = opt->P = opt->N = NULL;
     opt->invM = opt->invP = NULL;
+    opt->Mt = opt->Pt = NULL;
     opt->illumina = false;
+    opt->dumpRaw = false;
     return opt;
 }
 
@@ -439,7 +445,7 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
     SIMOPT simopt = new_SIMOPT();
     validate(NULL!=simopt,NULL);
     
-    while ((ch = getopt_long(argc, argv, "a:b:c:dD:F:f:i:Ij:l:mM:n:N:o:p:P:q:r:s:t:uv:h", longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "a:b:c:dD:F:f:i:Ij:l:mM:n:N:o:p:P:q:r:Rs:t:uv:h", longopts, NULL)) != -1){
         int ret;
         unsigned long int i=0,j=0;
         switch(ch){
@@ -519,8 +525,8 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
         case 'n':   sscanf(optarg,"%u",&simopt->ncycle);
                     if(simopt->ncycle==0){errx(EXIT_FAILURE,"Number of cycles to simulate must be greater than zero.");}
                     break;
-        case 'N':   simopt->M = new_MAT_from_file(optarg,0,0);
-		    if(NULL==simopt->M){ errx(EXIT_FAILURE,"Failed to read noise matrix from file %s",optarg); }
+        case 'N':   simopt->N = new_MAT_from_file(optarg,0,0);
+		    if(NULL==simopt->N){ errx(EXIT_FAILURE,"Failed to read noise matrix from file %s",optarg); }
 		    break;
         case 'o':   if( strcasecmp(optarg,output_format_str[OUTPUT_LIKE])==0 ){ simopt->format = OUTPUT_LIKE; }
                     else if ( strcasecmp(optarg,output_format_str[OUTPUT_FASTA])==0 ){ simopt->format = OUTPUT_FASTA; }
@@ -552,6 +558,8 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
         case 'r':   simopt->mu = parse_real(optarg);
                     if(simopt->mu<0.0){errx(EXIT_FAILURE,"Robustness \"mu\" must be non-negative.");}
                     break;
+	case 'R':   simopt->dumpRaw = true;
+		    break;
         case 's':   simopt->seed = parse_uint(optarg);
                     break;
         case 't':   simopt->tile = parse_uint(optarg);
@@ -762,7 +770,7 @@ MAT random_mix_intensities(const MAT int1, const MAT int2, const real_t shape1, 
 }
 
     
-CALLED process_intensities( const MAT intensities, const real_t lambda, const MAT * invchol, const SIMOPT simopt){
+CALLED process_intensities( MAT intensities, const real_t lambda, const MAT * invchol, const SIMOPT simopt){
     CALLED cl = calloc(1,sizeof(*cl));
     if(NULL==cl){ return NULL;}
     cl->intensities = intensities;
@@ -770,6 +778,10 @@ CALLED process_intensities( const MAT intensities, const real_t lambda, const MA
     cl->calls = call_by_maximum_likelihood(cl->loglike,cl->calls);
     cl->quals = quality_from_likelihood(cl->loglike,cl->calls,simopt->illumina,cl->quals);
     cl->pass_filter = number_inpure_cycles(intensities,simopt->purity_threshold,simopt->purity_cycles) <= simopt->purity_max;
+    if(simopt->dumpRaw){
+        cl->intensities = unprocess_intensities(cl->intensities,simopt->Mt, simopt->Pt, simopt->N, NULL);
+	free_MAT(intensities);
+    }
     return cl;
 }
 
@@ -885,6 +897,11 @@ int main( int argc, char * argv[] ){
 	    errx(EXIT_FAILURE,"Cross-talk, phasing and noise matrices required to simulate dust");
 	}
     }
+    if(simopt->dumpRaw){
+        if(NULL==simopt->M || NULL==simopt->P || NULL==simopt->N){
+            errx(EXIT_FAILURE,"Cross-talk, phasing and noise matrices required to dump raw intensities");
+	}
+    }
     // Check that M, P and N dimensions are consistent with run file
     if(NULL!=simopt->M){
         if(NBASE!=simopt->M->nrow || NBASE!=simopt->M->ncol){
@@ -892,6 +909,7 @@ int main( int argc, char * argv[] ){
 	}
 	// Want inverse for calculations
 	simopt->invM = invert_MAT(simopt->M);
+	simopt->Mt = transpose(simopt->M);
     }
     if(NULL!=simopt->P){
         if(model->ncycle!=simopt->P->nrow || model->ncycle!=simopt->P->ncol){
@@ -899,6 +917,7 @@ int main( int argc, char * argv[] ){
 	}
 	// Want inverse for calculations
 	simopt->invP = invert_MAT(simopt->P);
+	simopt->Pt = transpose(simopt->P);
     }
     if(NULL!=simopt->N){
 	if(NBASE!=simopt->N->nrow || model->ncycle!=simopt->N->ncol){

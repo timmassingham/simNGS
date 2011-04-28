@@ -69,4 +69,6 @@ MAT invert_MAT(const MAT mat);
 MAT trim_MAT( MAT mat, const int mrow, const int mcol, const bool forwards);
 MAT * block_diagonal_MAT( const MAT mat, const int n);
 MAT scale_MAT(MAT mat, const real_t f);
+MAT transpose( const MAT mat);
 #endif
+

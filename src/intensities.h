@@ -53,4 +53,6 @@ ARRAY(NUC) call_by_maximum_likelihood(const MAT likelihood, ARRAY(NUC) calls);
 ARRAY(PHREDCHAR) quality_from_likelihood(const MAT likelihood, const ARRAY(NUC) calls, const bool doIllumina, ARRAY(PHREDCHAR) quals);
 uint32_t number_inpure_cycles( const MAT intensities, const real_t threshold, const uint32_t ncycle);
 
+MAT unprocess_intensities(const MAT intensities, const MAT M_t, const MAT P_t, const MAT N, MAT p);
+
 #endif
