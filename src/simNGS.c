@@ -41,7 +41,7 @@
 #define STRINGIFY(A) #A
 #define ILLUMINA_ADAPTER "AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGAT"
 #define PROGNAME "simNGS"
-#define PROGVERSION "1.2.3"
+#define PROGVERSION "1.3.0"
 
 enum paired_type { PAIRED_TYPE_SINGLE=0, PAIRED_TYPE_CYCLE, PAIRED_TYPE_PAIRED };
 char * paired_type_str[] = {"single","cycle","paired"};
