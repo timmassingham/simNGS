@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2010 by Tim Massingham, European Bioinformatics Institute
+ *  Copyright (C) 2011 by Tim Massingham, European Bioinformatics Institute
  *  tim.massingham@ebi.ac.uk
  *
  *  This file is part of the simNGS software for simulating likelihoods
@@ -19,22 +19,17 @@
  *  along with simNGS.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _RANDOM_H
-#define _RANDOM_H
+#ifndef _ELLIPTIC_H
+#define _ELLIPTIC_H
 
-#include "SFMT-src-1.3/SFMT.h"
+#include "matrix.h"
 #include "utility.h"
 
-//Uniform RV on (0,1)                       
-inline static real_t runif(void){
-	return (((real_t)gen_rand64()) + 0.5) * (1.0/18446744073709551616.0L);
-}
+// Radius functions
+real_t lognormal_radius( int n );
+real_t normal_radius( int n);
 
-uint32_t rchoose( const real_t * p, const uint32_t n);
-
-real_t rexp(const real_t r);
-real_t rgamma(const real_t shape, const real_t scale);
-real_t rchisq(const real_t df);
+MAT relliptic ( const MAT mean, const MAT L, real_t (*randomradius)(int), const uint32_t n, MAT z);
 
 #endif
 

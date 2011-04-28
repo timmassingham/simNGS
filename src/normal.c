@@ -75,6 +75,10 @@ real_t pnorm( const real_t q, const real_t m, const real_t sd, const bool tail, 
     return pstdnorm((q-m)/sd,tail,logd);
 }
 
+real_t rlognorm ( const real_t logmean, const real_t logsd){
+    return exp(rnorm(logmean,logsd));
+}
+
 
 
 /* Generate multivariate normal obserations

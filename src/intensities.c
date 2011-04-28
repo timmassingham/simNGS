@@ -28,6 +28,7 @@
 #include "nuc.h"
 #include "normal.h"
 #include "lambda_distribution.h"
+#include "elliptic.h"
 
 #define MODEL_FILE_VERSION 5
 
@@ -346,7 +347,8 @@ MODEL new_MODEL_from_file( const CSTRING filename ){
     return model;
 }
 
-
+const real_t logmean = 5.07;
+const real_t logsd = 1.088;
 MAT generate_pure_intensities ( 
     const real_t sdfact, const real_t lambda, const ARRAY(NUC) seq, 
     const ARRAY(NUC) adapter, const uint32_t ncycle, const MAT chol, 
@@ -359,6 +361,7 @@ MAT generate_pure_intensities (
     }
     
     rmultinorm(NULL,chol,NBASE*ncycle,ints);
+    //relliptic(NULL,chol,normal_radius,NBASE*ncycle,ints);
     reshape_MAT(ints,NBASE);
     if(1.0!=sdfact){scale_MAT(ints,sdfact);}
     for ( uint32_t i=0 ; i<ncycle ; i++){
@@ -432,6 +435,11 @@ MAT likelihood_cycle_intensities ( const real_t sdfact, real_t mu, const real_t 
             memcpy(tmp->x,ints->x+i*NBASE,NBASE*sizeof(real_t));
             tmp->x[j] -= lambda;
             like->x[i*NBASE+j] = -dchisq4(lss(tmp,invchol[i])/(sdfact*sdfact),true);
+            // log-likelihood of log-normal distribution
+ 	    /*real_t t = lss(tmp,invchol[i])/(sdfact*sdfact);
+ 	    real_t del = (log(t)-logmean)/logsd;
+ 	    like->x[i*NBASE+j] = del*del/(8.0*logsd*logsd) + 2.0 * log(t); // + logsd*logsd - 2.0*logmean;*/
+
         }
     }
     if(mu>0.0){
