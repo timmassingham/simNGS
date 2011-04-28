@@ -13,7 +13,7 @@ SYNOPSIS
           [-F factor] [-f nimpure:ncycle:threshold] [-i filename] [-I] 
           [-j range:a:b] [-l lane] [-m [insertion:deletion:mutation]] 
           [-M file] [-n ncycle] [-N file] [-o output_format] [-p option] 
-          [-P file] [-q quantile] [-r mu] [-s seed] [-t tile] 
+          [-P file] [-q quantile] [-r mu] [-R] [-s seed] [-t tile] 
           [-v factor ] runfile [seq.fa ... ]
 
 
@@ -212,6 +212,10 @@ The theory behind this is consider the observation to be a mixture of
 the model and small proportion of contaminant, then define the 
 robustified likelihood to be the supremum over all possible 
 contaminants (i.e. allow the contaminant to be the worst possible).
+
+*-R, --raw*::
+	Convert intensities to raw intensities before outputing.
+Requires cross-talk, phasing and noise matrices to be specified.
 
 *-s, --seed* seed [default: clock]::
         Seed used to set random number generator. Where no seed is 
