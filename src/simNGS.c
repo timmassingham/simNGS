@@ -231,7 +231,7 @@ void fprint_help( FILE * fp){
 "(the second end is reverse complemented and appended to first).\n"
 "The \"paired\" option splits the two ends of the read into separate\n"
 "records, indicated by a suffix /1 or /2 to the read name. The second\n"
-"end is reported in the same orientation as the first.\n"
+"end is reported in the opposite orientation to the first.\n"
 "For single-ended runs treated as paired, the covariance matrix is\n"
 "duplicated to make two uncorrelated pairs.\n"
 "\n"
