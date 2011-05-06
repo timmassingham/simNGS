@@ -43,7 +43,7 @@ NUC read_NUC(FILE * fp);
 PHREDCHAR read_PHREDCHAR(FILE * fp);
 #define MIN_PHRED   33
 #define MAX_PHRED   126
-#define ERR_PHRED   0
+#define ERR_PHRED   33
 
 #define X(A) A ## NUC
 #include "array.def"
