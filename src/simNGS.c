@@ -111,8 +111,8 @@ void fprint_usage( FILE * fp){
 "\n"
 "Usage:\n"
 "\t" PROGNAME " [-a adapter] [-b shape:scale] [-c correlation] [-d] [-D prob]\n"
-"\t       [-f nimpure:ncycle:threshold] [-F factor] [-i filename] [-I] [-j range:a:b]\n"
-"\t       [-l lane] [-m] [-M matrix file] [-N noise file] [-n ncycle]\n"
+"\t       [-f nimpure:ncycle:threshold] [-F factor] [-g prob] [-i filename] [-I]\n"
+"\t       [-j range:a:b] [-l lane] [-m] [-M matrix file] [-N noise file] [-n ncycle]\n"
 "\t       [-o output_format] [-p option] [-P phasing file] [-q quantile] [-r mu] [-R]\n"
 "\t       [-s seed] [-t tile] [-v factor ] runfile [seq.fa ... ]\n"
 "\t" PROGNAME " --help\n"
@@ -183,6 +183,11 @@ void fprint_help( FILE * fp){
 "matrix by default if the number of cycles required is fewer than that described\n"
 "in the runfile or 1 if equal.\n"
 "\n"
+"-g, --generalised, --generalized probability [default: set from mutation rate]\n"
+"\tProbability of a generalised error, a mistaken bsae not due to\n"
+"base calling error. If not given, the probability of a generalised error\n"
+"is set to the base mutation rate (see the --mutate option).\n"
+"\n"
 "-i, --intensities filename [default: none]\n"
 "\tWrite the processed intensities generated to \"filename\".\n"
 "\n"
@@ -243,7 +248,7 @@ void fprint_help( FILE * fp){
 "\tQuantile below which cluster brightness is discarded and redrawn from\n"
 "distribution.\n"
 "\n"
-"-r, --robust mu [default: 1e-5]\n"
+"-r, --robust mu [default: 1e-6]\n"
 "\tCalculate robustified likelihood, equivalent to adding mu to every\n"
 "likelihood.\n"
 "\n"
@@ -269,6 +274,8 @@ static struct option longopts[] = {
     { "dust",       required_argument, NULL, 'D' },
     { "final",      required_argument, NULL, 'F' },
     { "filter",     required_argument, NULL, 'f' },
+    { "generalised", required_argument, NULL, 'g' },
+    { "generalized", required_argument, NULL, 'g' },
     { "intensities", required_argument, NULL, 'i'},
     { "illumina",   no_argument,       NULL, 'I' },
     { "jumble",     required_argument, NULL, 'j' },
@@ -328,7 +335,7 @@ typedef struct {
     real_t shape,scale,corr,threshold;
     enum paired_type paired;
     bool desc;
-    real_t mu,sdfact;
+    real_t mu,generr,sdfact;
     real_t final_factor[4];
     uint32_t seed;
     uint32_t tile,lane;
@@ -359,7 +366,8 @@ SIMOPT new_SIMOPT(void){
     opt->threshold = 0.0;
     opt->paired = PAIRED_TYPE_SINGLE;
     opt->desc = false;
-    opt->mu = -1.0;
+    opt->mu = 1e-6;
+    opt->generr= -1.0;
     opt->seed = 0;
     opt->sdfact = 1.0;
     opt->final_factor[0] = -1.0;
@@ -445,7 +453,7 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
     SIMOPT simopt = new_SIMOPT();
     validate(NULL!=simopt,NULL);
     
-    while ((ch = getopt_long(argc, argv, "a:b:c:dD:F:f:i:Ij:l:mM:n:N:o:p:P:q:r:Rs:t:uv:h", longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "a:b:c:dD:F:f:g:i:Ij:l:mM:n:N:o:p:P:q:r:Rs:t:uv:h", longopts, NULL)) != -1){
         int ret;
         unsigned long int i=0,j=0;
         switch(ch){
@@ -486,6 +494,9 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
                         errx(EXIT_FAILURE,"Purity threshold is %f but should be between 0 and 1.",simopt->purity_threshold);
                     }
                     break;
+	case 'g':   simopt->generr = parse_real(optarg);
+                    if(simopt->generr<0.0 || simopt->generr>1.0){errx(EXIT_FAILURE,"Generalized error is %f but must be a probability [0,1]",simopt->generr);}
+		    break;
         case 'i':   simopt->intensity_fn = copy_CSTRING(optarg);
                     break;
                 case 'j':   ret = sscanf(optarg, "%u:" real_format_str ":" real_format_str, &simopt->bufflen,&simopt->a, &simopt->b);
@@ -776,7 +787,7 @@ CALLED process_intensities( MAT intensities, const real_t lambda, const MAT * in
     cl->intensities = intensities;
     cl->loglike = likelihood_cycle_intensities(simopt->sdfact,simopt->mu,lambda,intensities,invchol,NULL);
     cl->calls = call_by_maximum_likelihood(cl->loglike,cl->calls);
-    cl->quals = quality_from_likelihood(cl->loglike,cl->calls,simopt->illumina,cl->quals);
+    cl->quals = quality_from_likelihood(cl->loglike,cl->calls,simopt->generr,simopt->illumina,cl->quals);
     cl->pass_filter = number_inpure_cycles(intensities,simopt->purity_threshold,simopt->purity_cycles) <= simopt->purity_max;
     if(simopt->dumpRaw){
         cl->intensities = unprocess_intensities(cl->intensities,simopt->Mt, simopt->Pt, simopt->N, NULL);
@@ -888,9 +899,10 @@ int main( int argc, char * argv[] ){
     simopt->shape = model->shape;
     if(simopt->scale!=0){ model->scale = simopt->scale;}
     simopt->scale = model->scale;
-    if(simopt->mu==-1.0){
-	    simopt->mu = (simopt->mutate)?simopt->mut:0.0;
+    if(simopt->generr==-1.0){
+	    simopt->generr = (simopt->mutate)?simopt->mut:0.0;
     }
+
     // Dust simulation requires phasing, cross-talk and noise matrices
     if(0.0!=simopt->dustProb){
         if(NULL==simopt->M || NULL==simopt->P || NULL==simopt->N){
