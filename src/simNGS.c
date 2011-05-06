@@ -853,7 +853,7 @@ void update_error_counts(const ARRAY(NUC) calls, const ARRAY(NUC) seq, uint32_t 
     uint32_t ncycle = calls.nelt;
     uint32_t nerr = 0;
     for ( uint32_t i=0 ; i<ncycle ; i++){
-        if(calls.elt[i] != seq.elt[i]){ nerr++; error[i]++;}
+        if(i>=seq.nelt || calls.elt[i] != seq.elt[i]){ nerr++; error[i]++;}
     }
     errorhist[(nerr<6)?nerr:6]++;
 }
