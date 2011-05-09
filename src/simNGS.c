@@ -110,7 +110,7 @@ void fprint_usage( FILE * fp){
 "Simulate likelihoods for Illumina data from fasta format files\n"
 "\n"
 "Usage:\n"
-"\t" PROGNAME " [-a adapter] [-b shape:scale] [-c correlation] [-d] [-D prob]\n"
+"\t" PROGNAME " [-a adapter] [-b shape1:scale1:shape2:scale2] [-c correlation] [-d] [-D prob]\n"
 "\t       [-f nimpure:ncycle:threshold] [-F factor] [-g prob] [-i filename] [-I]\n"
 "\t       [-j range:a:b] [-l lane] [-m] [-M matrix file] [-N noise file] [-n ncycle]\n"
 "\t       [-o output_format] [-p option] [-P phasing file] [-q quantile] [-r mu] [-R]\n"
@@ -157,8 +157,10 @@ void fprint_help( FILE * fp){
 "cycles required, reflecting the adpater sequence used for sample preparaton.\n"
 "A null adapter (i.e. pad with ambiguity characters) can be specified by -a \"\"\n" 
 "\n" 
-"-b, --brightness shape:scale [default: as runfile]\n"
-"\tShape and scale of cluster brightnes distribution.\n"
+"-b, --brightness shape1:scale1[:shape2:scale2] [default: as runfile]\n"
+"\tShape and scale of cluster brightness distribution for each end of pair.\n"
+"Parameters for second end (shape2 and scale2) are optional; those for the first\n"
+"end will be repeated if necessary.\n"
 "Currently a Weibull distribution is used.\n"
 "\n"
 "-c, --correlation [default: 1.0]\n"
@@ -332,7 +334,7 @@ unsigned int parse_uint( const CSTRING str){
 
 typedef struct {
     unsigned int ncycle;
-    real_t shape,scale,corr,threshold;
+    real_t shape1,scale1,shape2,scale2,corr,threshold;
     enum paired_type paired;
     bool desc;
     real_t mu,generr,sdfact;
@@ -360,8 +362,10 @@ SIMOPT new_SIMOPT(void){
     validate(NULL!=opt,NULL);
     // Set defaults
     opt->ncycle = 0;
-    opt->shape = 0.0;
-    opt->scale = 0.0;
+    opt->shape1 = 0.0;
+    opt->scale1 = 0.0;
+    opt->shape2 = 0.0;
+    opt->scale2 = 0.0;
     opt->corr = 1.0;
     opt->threshold = 0.0;
     opt->paired = PAIRED_TYPE_SINGLE;
@@ -418,8 +422,10 @@ void show_SIMOPT (FILE * fp, const SIMOPT simopt){
     fprintf( fp,"paired\t%s\n",paired_type_str[simopt->paired]);
     fprintf( fp,"Brightness correlation\t%f\n",simopt->corr);
     fprintf( fp,"mu\t%f\n",simopt->mu);
-    fprintf( fp,"shape\t%f\n",simopt->shape);
-    fprintf( fp,"scale\t%f\n",simopt->scale);
+    fprintf( fp,"shape1\t%f\n",simopt->shape1);
+    fprintf( fp,"scale1\t%f\n",simopt->scale1);
+    fprintf( fp,"shape2\t%f\n",simopt->shape2);
+    fprintf( fp,"scale2\t%f\n",simopt->scale2);
     fprintf( fp,"threshold\t%f\n",simopt->threshold);
     fprintf( fp,"variance factor\t%f\n",simopt->sdfact*simopt->sdfact);
     fprintf( fp,"tile\t%u\tlane%u\n",simopt->tile,simopt->lane);
@@ -460,10 +466,14 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
         case 'a':   free_ARRAY(NUC)(simopt->adapter);
                     simopt->adapter = nucs_from_string(optarg);
                     break;
-        case 'b':   ret = sscanf(optarg,real_format_str ":" real_format_str ,&simopt->shape,&simopt->scale);
-                    if(ret!=2){ errx(EXIT_FAILURE,"Insufficient arguments for brightness.");}
-                    if(simopt->shape<=0.){ errx(EXIT_FAILURE,"Brightness shape must be greater than zero."); }
-                    if(simopt->scale<=0.){ errx(EXIT_FAILURE,"Brightness scale must be greater than zero."); }
+	case 'b':   ret = sscanf(optarg,real_format_str ":" real_format_str ":" real_format_str ":" real_format_str,&simopt->shape1,&simopt->scale1,&simopt->shape2,&simopt->scale2);
+                    if(ret!=2 || ret!=4){ errx(EXIT_FAILURE,"Insufficient arguments for brightness.");}
+		    if(ret==2){
+			    simopt->shape2 = simopt->shape1;
+			    simopt->scale2 = simopt->scale2;
+		    }
+                    if(simopt->shape1<=0. || simopt->shape2<=0.){ errx(EXIT_FAILURE,"Brightness shape must be greater than zero."); }
+                    if(simopt->scale1<=0. || simopt->scale2<=0.){ errx(EXIT_FAILURE,"Brightness scale must be greater than zero."); }
                     break;
         case 'c':   sscanf(optarg,"%f",&simopt->corr);
                     if(simopt->corr<-1.0 || simopt->corr>1.0){errx(EXIT_FAILURE,"Correlation between end brightness should be in [-1,1]. Was given %f.",simopt->corr);}
@@ -740,7 +750,7 @@ void output_results(FILE * intout, const SIMOPT simopt, const char * seqname, co
 
 struct pair_double { double x1,x2;};
 
-struct pair_double correlated_weibulls(const real_t threshold, const real_t corr, const real_t shape, const real_t scale){
+struct pair_double correlated_weibulls(const real_t threshold, const real_t corr, const real_t shape1, const real_t scale1, const real_t shape2, const real_t scale2){
     // Pick lambda using Gaussian Copula
     real_t lambda1=NAN,lambda2=NAN;
     real_t px=0.0,py=0.0;
@@ -753,8 +763,8 @@ struct pair_double correlated_weibulls(const real_t threshold, const real_t corr
         py = pstdnorm(y,false,false);
     } while(px<threshold || py<threshold);
     // Convert to Weibull via inversion formula
-    lambda1 = qweibull(px,shape,scale,false,false);
-    lambda2 = qweibull(py,shape,scale,false,false);
+    lambda1 = qweibull(px,shape1,scale1,false,false);
+    lambda2 = qweibull(py,shape2,scale2,false,false);
     return (struct pair_double){lambda1,lambda2};
 }
 
@@ -895,10 +905,14 @@ int main( int argc, char * argv[] ){
     
     // Resolve options and model
     // Should factor out into separate routine
-    if(simopt->shape!=0){ model->shape = simopt->shape;}
-    simopt->shape = model->shape;
-    if(simopt->scale!=0){ model->scale = simopt->scale;}
-    simopt->scale = model->scale;
+    if(simopt->shape1!=0){
+	    model->shape1 = simopt->shape1;
+	    model->shape2 = simopt->shape2;
+    }
+    if(simopt->scale1!=0){ 
+	    model->scale1 = simopt->scale1;
+	    model->scale2 = simopt->scale2;
+    }
     if(simopt->generr==-1.0){
 	    simopt->generr = (simopt->mutate)?simopt->mut:0.0;
     }
@@ -950,11 +964,17 @@ int main( int argc, char * argv[] ){
         model->cov2 = copy_MAT(model->cov1);
         model->chol2 = copy_MAT(model->chol1);
         model->invchol2 = calloc(model->ncycle,sizeof(*model->invchol2));
+	model->shape2 = (model->shape2==0.0)?model->shape1:model->shape2;
+	model->scale2 = (model->scale2==0.0)?model->scale1:model->scale2;
         for ( uint32_t i=0 ; i<model->ncycle ; i++){
             model->invchol2[i] = copy_MAT(model->invchol1[i]);
         }
     }
-    
+    simopt->shape1 = model->shape1;
+    simopt->shape2 = model->shape2;
+    simopt->scale1 = model->scale1;
+    simopt->scale2 = model->shape2;
+
     if(simopt->ncycle==0){
 	    simopt->ncycle = model->ncycle;
     }
@@ -1023,9 +1043,10 @@ int main( int argc, char * argv[] ){
             seqstr->paired = model->paired;
             free_SEQ(seq); seq=NULL;
             // Pick copula
-            struct pair_double lambda = correlated_weibulls(simopt->threshold,simopt->corr,simopt->shape,simopt->scale);
+            struct pair_double lambda = correlated_weibulls(simopt->threshold,simopt->corr,model->shape1,model->scale1,model->shape2,model->scale2);
             seqstr->lambda1 = lambda.x1;
             seqstr->lambda2 = lambda.x2;
+
             // Generate intensities
             seqstr->int1 = generate_pure_intensities(simopt->sdfact,lambda.x1,seqstr->seq,simopt->adapter,model->ncycle,model->chol1,simopt->dustProb,simopt->invM,simopt->invP,simopt->N,NULL);
             if ( model->paired ){

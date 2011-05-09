@@ -28,9 +28,9 @@
 #include "nuc.h"
 #include "normal.h"
 
-MODEL new_MODEL(const char * label, const real_t shape, const real_t scale, const MAT cov1, const MAT cov2){
-    validate(shape>0,NULL);
-    validate(scale>0,NULL);
+MODEL new_MODEL(const char * label, const real_t shape1, const real_t scale1, const real_t shape2, const real_t scale2, const MAT cov1, const MAT cov2){
+    validate(shape1>0 || shape2>0,NULL);
+    validate(scale1>0 || scale2>0,NULL);
     validate(NULL!=cov1,NULL);
     MODEL model = calloc(1,sizeof(*model));
     model->paired = false;
@@ -76,8 +76,10 @@ MODEL new_MODEL(const char * label, const real_t shape, const real_t scale, cons
         }
     }
     
-    model->shape = shape;
-    model->scale = scale;
+    model->shape1 = shape1;
+    model->scale1 = scale1;
+    model->shape2 = shape2;
+    model->scale2 = scale2;
     
     return model;
     
@@ -113,8 +115,10 @@ MODEL copy_MODEL( const MODEL model){
     MODEL newmodel      = calloc(1,sizeof(*newmodel));
     newmodel->ncycle    = model->ncycle;
     newmodel->orig_ncycle = model->orig_ncycle;
-    newmodel->shape     = model->shape;
-    newmodel->scale     = model->scale;
+    newmodel->shape1     = model->shape1;
+    newmodel->scale1     = model->scale1;
+    newmodel->shape1     = model->shape1;
+    newmodel->scale2     = model->scale2;
     newmodel->paired    = model->paired;
 
     newmodel->cov1       = copy_MAT(model->cov1);
@@ -156,10 +160,22 @@ void show_MODEL( FILE * fp, MODEL model){
     validate(NULL!=model,);
     if(NULL!=model->label){fputs(model->label,fp);}
     fprintf(fp,"Parameters for %u cycle model\n",model->ncycle);
-    fprintf(fp,"Brightness distribution:\n\tshape=%f\tscale=%f\n",model->shape,model->scale);
-    const real_t bmean = model->scale * tgamma(1./model->shape) / model->shape;
-    real_t bvar = model->scale*model->scale * 2.0 * tgamma(2./model->shape) / model->shape - bmean*bmean;
-    fprintf(fp,"\tmean=%f\tsd=%f\n",bmean,sqrt(bvar));
+    fprintf(fp,"Brightness distribution:\n\tshape1=%f\tscale1=%f",model->shape1,model->scale1);
+    if(NULL!=model->cov2){
+	    fprintf(fp,"\tshape2=%f\tscale2=%f\n",model->shape2,model->scale2);
+    } else {
+	    fputc('\n',fp);
+    }
+    real_t bmean = model->scale1 * tgamma(1./model->shape1) / model->shape1;
+    real_t bvar = model->scale1*model->scale1 * 2.0 * tgamma(2./model->shape1) / model->shape1 - bmean*bmean;
+    fprintf(fp,"\tmean1=%f\tsd1=%f",bmean,sqrt(bvar));
+    if(NULL!=model->cov2){
+    	bmean = model->scale2 * tgamma(1./model->shape2) / model->shape2;
+    	bvar = model->scale2*model->scale2 * 2.0 * tgamma(2./model->shape2) / model->shape2 - bmean*bmean;
+    	fprintf(fp,"\tmean2=%f\tsd2=%f\n",bmean,sqrt(bvar));
+    } else {
+	    fputc('\n',fp);
+    }
     fputs("Covariance matrix of errors:\n",fp);
     show_MAT(fp,model->cov1,5,5);
 
@@ -195,11 +211,20 @@ MODEL new_MODEL_from_fp( FILE * fp){
     }
     ungetc(c,fp);
     uint32_t ncycle=0;
-    real_t shape=0.0, scale=0.0;
-    fscanf(fp, "%"SCNu32 real_format_str real_format_str,&ncycle,&shape,&scale);
+    real_t shape1=0.0, scale1=0.0;
+    fscanf(fp, "%"SCNu32 real_format_str real_format_str,&ncycle,&shape1,&scale1);
     MAT cov1 = new_MAT_from_fp(fp,ncycle*NBASE,ncycle*NBASE);
+    uint32_t ncycle2=0;
+    real_t shape2=0.0, scale2=0.0;
+    int ret = fscanf(fp, "%"SCNu32 real_format_str real_format_str,&ncycle2,&shape2,&scale2);
+    if( ret>0 && ret!=3 ){
+	    errx(EXIT_FAILURE,"Problems reading second end of runfile: read %d elts",ret);
+    }
+    if(ret>0 && ncycle!=ncycle2){
+	    errx(EXIT_FAILURE,"Reading paired-end runfile but ends have differing numbers of cycles (%"SCNu32 " and %"SCNu32 ")",ncycle,ncycle2);
+    }
     MAT cov2 = new_MAT_from_fp(fp,ncycle*NBASE,ncycle*NBASE);
-    MODEL model = new_MODEL(label,shape,scale,cov1,cov2);
+    MODEL model = new_MODEL(label,shape1,scale1,shape2,scale2,cov1,cov2);
     
     if(NULL!=cov2){free_MAT(cov2);};
     free_MAT(cov1);
@@ -250,7 +275,7 @@ MODEL trim_MODEL(const uint32_t ncycle, real_t final_factor[4], const MODEL mode
 		}
 	}
 
-	newmod = new_MODEL(model->label,model->shape,model->scale,trimmedVar1,trimmedVar2);
+	newmod = new_MODEL(model->label,model->shape1,model->scale1,model->shape2,model->scale2,trimmedVar1,trimmedVar2);
 	if(NULL==newmod){goto cleanup;}
 
 	free_MAT(trimmedVar2);

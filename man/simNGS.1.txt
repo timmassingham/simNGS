@@ -9,12 +9,12 @@ Illumina sequencing platform
 
 SYNOPSIS
 --------
-*simNGS*  [-a adapter] [-b shape:scale] [-c correlation] [-d] [-D prob]
-          [-F factor] [-f nimpure:ncycle:threshold] [-g prob] [-i filename] 
-          [-I] [-j range:a:b] [-l lane] [-m [insertion:deletion:mutation]] 
-          [-M file] [-n ncycle] [-N file] [-o output_format] [-p option] 
-          [-P file] [-q quantile] [-r mu] [-R] [-s seed] [-t tile] 
-          [-v factor ] runfile [seq.fa ... ]
+*simNGS*  [-a adapter] [-b shape1:scale1:shape2:scale2] [-c correlation] [-d]
+          [-D prob] [-F factor] [-f nimpure:ncycle:threshold] [-g prob] 
+          [-i filename] [-I] [-j range:a:b] [-l lane] 
+          [-m [insertion:deletion:mutation]] [-M file] [-n ncycle] [-N file] 
+          [-o output_format] [-p option] [-P file] [-q quantile] [-r mu] [-R] 
+          [-s seed] [-t tile] [-v factor ] runfile [seq.fa ... ]
 
 
 *simNGS* --help
@@ -60,7 +60,7 @@ of cycles required, reflecting the adpater sequence used for sample
 preparaton. A null adapter (i.e. pad with ambiguity characters) can be
 specified by -a ""
 
-*-b, --brightness* shape,scale [default: as runfile]::
+*-b, --brightness* shape1:scale1:shape2:scale2 [default: as runfile]::
 Set parameters for the distribution of cluster brightness. The cluster 
 brightness represents the combination of the incident intensity of the 
 laser on the each cluster and the number of fluropores emitting 

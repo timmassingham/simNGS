@@ -32,11 +32,12 @@ typedef struct {
     MAT cov1,cov2;  // Covariance
     MAT chol1,chol2;       // Cholesky factorisation of covariance
     MAT *invchol1, *invchol2;    // Inverse of cholesky factorisation
-    real_t shape, scale; // Parameters for distribution of lambda
+    real_t shape1, scale1; // Parameters for distribution of lambda
+    real_t shape2, scale2;
     char * label;
 } * MODEL;
 
-MODEL new_MODEL(const char * label, const real_t shape, const real_t scale, const MAT cov1, const MAT cov2);
+MODEL new_MODEL(const char * label, const real_t shape1, const real_t scale1, const real_t shape2, const real_t scale2, const MAT cov1, const MAT cov2);
 void free_MODEL(MODEL model);
 MODEL copy_MODEL(const MODEL model);
 void show_MODEL(FILE * fp, const MODEL model);
