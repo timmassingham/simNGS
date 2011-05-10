@@ -74,6 +74,14 @@ valued numbers greater than zero, with mean and variance:
 
 where \Gamma is the Gamma function.
 
+If the brightness distribution is not set, a distribution specified in the
+runfile will be used. Said distribution may not be Weibull and is specified
+by one of the following codes::
+
+	'L' 	Logistic
+
+	'W'	Weibull
+
 *-c, --correlation* [default: 1.0]::
 Correlation between brightness of one end of a paired-end run and the
 other. Correlation is implemented using a Gaussian copula, the marginal

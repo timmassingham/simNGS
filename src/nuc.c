@@ -124,7 +124,9 @@ PHREDCHAR phredchar_from_prob( real_t p, const bool doIllumina){
     real_t c = ((doIllumina)?64:33) - 10*log1p(-p)/log(10);
     if(c<MIN_PHRED){c=MIN_PHRED;}
     if(c>MAX_PHRED){c=MAX_PHRED;}
-    return (PHREDCHAR)(c+0.5);
+    PHREDCHAR ret = (PHREDCHAR)(c+0.5);
+    if(ret<MIN_PHRED || ret>MAX_PHRED){ abort();}
+    return ret;
 }
 
 NUC random_NUC(void){

@@ -35,6 +35,7 @@
 #include "weibull.h"
 #include "normal.h"
 #include "kumaraswamy.h"
+#include "lambda_distribution.h"
 
 
 #define DEFAULT_DUST_PROB 0.0
@@ -750,7 +751,8 @@ void output_results(FILE * intout, const SIMOPT simopt, const char * seqname, co
 
 struct pair_double { double x1,x2;};
 
-struct pair_double correlated_weibulls(const real_t threshold, const real_t corr, const real_t shape1, const real_t scale1, const real_t shape2, const real_t scale2){
+struct pair_double correlated_distribution(const real_t threshold, const real_t corr, const char dist1, const real_t * param1, const char dist2, const real_t * param2){
+
     // Pick lambda using Gaussian Copula
     real_t lambda1=NAN,lambda2=NAN;
     real_t px=0.0,py=0.0;
@@ -762,9 +764,9 @@ struct pair_double correlated_weibulls(const real_t threshold, const real_t corr
         px = pstdnorm(x,false,false);
         py = pstdnorm(y,false,false);
     } while(px<threshold || py<threshold);
-    // Convert to Weibull via inversion formula
-    lambda1 = qweibull(px,shape1,scale1,false,false);
-    lambda2 = qweibull(py,shape2,scale2,false,false);
+    // Convert to observation via inversion formula
+    lambda1 = qdistribution(px,dist1,param1,false,false);
+    lambda2 = qdistribution(py,dist2,param2,false,false);
     return (struct pair_double){lambda1,lambda2};
 }
 
@@ -906,12 +908,14 @@ int main( int argc, char * argv[] ){
     // Resolve options and model
     // Should factor out into separate routine
     if(simopt->shape1!=0){
-	    model->shape1 = simopt->shape1;
-	    model->shape2 = simopt->shape2;
-    }
-    if(simopt->scale1!=0){ 
-	    model->scale1 = simopt->scale1;
-	    model->scale2 = simopt->scale2;
+	    model->dist1 = 'W';
+	    model->param1 = calloc(nparameter_distribution(model->dist1),sizeof(real_t));
+	    model->param1[0] = simopt->shape1;
+	    model->param1[1] = simopt->scale1;
+	    model->dist2 = 'W';
+	    model->param2 = calloc(nparameter_distribution(model->dist2),sizeof(real_t));
+	    model->param2[0] = simopt->shape2;
+	    model->param2[1] = simopt->scale2;
     }
     if(simopt->generr==-1.0){
 	    simopt->generr = (simopt->mutate)?simopt->mut:0.0;
@@ -964,16 +968,16 @@ int main( int argc, char * argv[] ){
         model->cov2 = copy_MAT(model->cov1);
         model->chol2 = copy_MAT(model->chol1);
         model->invchol2 = calloc(model->ncycle,sizeof(*model->invchol2));
-	model->shape2 = (model->shape2==0.0)?model->shape1:model->shape2;
-	model->scale2 = (model->scale2==0.0)?model->scale1:model->scale2;
+	if(!model->dist2){
+		model->dist2 = model->dist1;
+		int np = nparameter_distribution(model->dist1);
+		model->param2 = calloc(np,sizeof(real_t));
+		memcpy(model->param2,model->param1,np*sizeof(real_t));
+	}
         for ( uint32_t i=0 ; i<model->ncycle ; i++){
             model->invchol2[i] = copy_MAT(model->invchol1[i]);
         }
     }
-    simopt->shape1 = model->shape1;
-    simopt->shape2 = model->shape2;
-    simopt->scale1 = model->scale1;
-    simopt->scale2 = model->shape2;
 
     if(simopt->ncycle==0){
 	    simopt->ncycle = model->ncycle;
@@ -1043,7 +1047,7 @@ int main( int argc, char * argv[] ){
             seqstr->paired = model->paired;
             free_SEQ(seq); seq=NULL;
             // Pick copula
-            struct pair_double lambda = correlated_weibulls(simopt->threshold,simopt->corr,model->shape1,model->scale1,model->shape2,model->scale2);
+            struct pair_double lambda = correlated_distribution(simopt->threshold,simopt->corr,model->dist1,model->param1,model->dist2,model->param2);
             seqstr->lambda1 = lambda.x1;
             seqstr->lambda2 = lambda.x2;
 
