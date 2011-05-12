@@ -57,6 +57,30 @@ real_t pstdnorm( const real_t q, const bool tail, const bool logd){
                        0.5*erfc(q*M_SQRT1_2);
     return (logd==false)?erfq:log(erfq);
 }
+
+// Newton's method
+real_t qstdnorm(const real_t p, const bool tail, const bool logp){
+        const int it_max = 20;
+        const real_t tol= 3e-8;
+        if(NULL==param){ return NAN;}
+
+        // Initialise
+        real_t ap = logp?exp(p):p;
+        // Crude fit to logistic to find initial x
+
+        real_t sd = sqrt(3.0)/M_PI;
+        real_t x = sd * (log(ap)-log1p(-ap));
+
+
+        // Iteration
+        for ( int i=0 ; i<it_max ; i++){
+                real_t delta = (ap-pstdnorm(x,tail,false))/dstdnorm(x,false);
+                x += delta;
+                if(fabs(delta)/(x+3e-8) < tol){ break;}
+        }
+        return x;
+}
+
     
 
     
@@ -75,9 +99,14 @@ real_t pnorm( const real_t q, const real_t m, const real_t sd, const bool tail, 
     return pstdnorm((q-m)/sd,tail,logd);
 }
 
+real_t qnorm(const real_t p, const real_t m, const real_t sd, const bool tail, const bool logd){
+    return m + sd * qstdnorm(p,tail,logd);
+}
+
 real_t rlognorm ( const real_t logmean, const real_t logsd){
     return exp(rnorm(logmean,logsd));
 }
+
 
 
 
