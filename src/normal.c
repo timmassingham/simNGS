@@ -59,7 +59,7 @@ real_t pstdnorm( const real_t q, const bool tail, const bool logd){
 }
 
 // Newton's method
-real_t qstdnorm(const real_t p, const bool tail, const bool logp){
+real_t qstdnorm( real_t p, const bool tail, const bool logp){
         const int it_max = 20;
         const real_t tol= 3e-8;
 

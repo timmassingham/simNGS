@@ -29,7 +29,7 @@
 real_t rstdnorm( void );
 real_t dstdnorm( const real_t x, const bool logd);
 real_t pstdnorm( const real_t q, const bool tail, const bool logd);
-real_t qstdnorm(const real_t p, const bool tail, const bool logd);
+real_t qstdnorm( real_t p, const bool tail, const bool logd);
 
 real_t rnorm( const real_t mean, const real_t sd );
 real_t dnorm(  real_t x,  real_t m,  real_t sd,  bool logd);
