@@ -157,6 +157,9 @@ real_t rmixnorm(const NormMixParam param){
 // Could be improved from a rounding perspective
 real_t pmixnorm(const real_t x, const NormMixParam param, const bool tail, const bool logp){
 	if(NULL==param){ return NAN;}
+	if(x==-HUGE_VAL){ return 0.0; }
+	if(x==HUGE_VAL){ return 1.0; }
+	if(isnan(x)){ return NAN;} 
 	real_t res = 0.0;
 	for ( int i=0 ; i<param->nmix ; i++){
 		res += param->prob[i] * pnorm(x,param->mean[i],param->sd[i],tail,false);
@@ -166,13 +169,23 @@ real_t pmixnorm(const real_t x, const NormMixParam param, const bool tail, const
 
 
 // Newton's method
-real_t qmixnorm(const real_t p, const NormMixParam param, const bool tail, const bool logp){
+real_t qmixnorm(const real_t p, const NormMixParam param, bool tail, const bool logp){
 	const int it_max = 20;
 	const real_t tol= 3e-8;
 	if(NULL==param){ return NAN;}
+	if(p<0.0 || p>1.0){ errx(EXIT_FAILURE,"p=%f in %s",__func__);}
+
+	if(p==0.0){ return -HUGE_VAL;}
+	if(p==1.0){ return HUGE_VAL;}
+	if(isnan(p)){ return NAN; }
 
 	// Initialise
-	real_t ap = logp?exp(p):p;
+	real_t ap = 0.0;
+	if(tail){
+		ap = logp?-expm1(p):1.0-p;
+	} else {
+		ap = logp?exp(p):p;
+	}
 	// Crude fit to logistic to find initial x
 	real_t im=0.0, im2=0.0, ivar=0.0;
 	for ( int i=0 ; i<param->nmix ; i++){
@@ -184,19 +197,36 @@ real_t qmixnorm(const real_t p, const NormMixParam param, const bool tail, const
 
 	real_t sd = sqrt(3.0*var)/M_PI;
 	real_t x = im + sd * (log(ap)-log1p(-ap));
+	//real_t x = im;
 
 	
 	// Iteration
+	bool tailf = false;
+	real_t sign = 1.0;
+	if(ap>0.5){
+		ap = 1.0 - ap;
+		tailf = true;
+		sign = -1.0;
+	}
 	for ( int i=0 ; i<it_max ; i++){
-		real_t delta = (ap-pmixnorm(x,param,tail,false))/dmixnorm(x,param,false);
+		real_t pmn = pmixnorm(x,param,tailf,false);
+		real_t dmn = sign*dmixnorm(x,param,false);
+		real_t delta = (ap-pmn)/dmn;
+		if(!finite(delta) || fabs(delta)>2*sd){ delta=2*sign*(1-2*signbit(ap-pmn))*sd;}
+		if(isnan(pmn)||isnan(dmn)||isnan(delta)){ abort();}
 		x += delta;
-		if(fabs(delta)/(x+3e-8) < tol){ break;}
+		if(fabs(delta)/(fabs(x)+3e-8) < tol){ break;}
 	}
 	return x;
 }
 
 
 #ifdef TEST
+void pf(real_t p, NormMixParam param){
+	real_t q = qmixnorm(p,param,false,false);
+	real_t pq = pmixnorm(q,param,false,false);
+	fprintf(stdout,"p=%e\tx'=%e\tp'=%e\n",p,q,(pq>0.5)?(1.0-pq):pq);
+}
 
 int main ( int argc, char * argv[]){
 	if(argc!=4){
@@ -223,11 +253,32 @@ int main ( int argc, char * argv[]){
 	}
 	show_NormMixParam(stdout,param);
 
-	int skip = nelt/10;
+	/*int skip = nelt/10;
 	for ( int i=0 ; i<nelt ; i+=skip){
 		real_t p = pmixnorm(x[i],param,false,false);
 		fprintf(stdout,"x=%f\tp=%f\tx'=%f\n",x[i],p,qmixnorm(p,param,false,false));
-	}
+	}*/
+
+	pf(1e-1,param);
+	pf(1e-2,param);
+	pf(1e-3,param);
+	pf(1e-4,param);
+	pf(1e-5,param);
+	pf(1e-6,param);
+	pf(1e-7,param);
+	pf(1e-8,param);
+	pf(1e-9,param);
+	pf(1e-10,param);
+	pf(0.9,param);
+	pf(0.99,param);
+	pf(0.999,param);
+	pf(0.9999,param);
+	pf(0.99999,param);
+	pf(0.999999,param);
+	pf(0.9999999,param);
+	pf(0.99999999,param);
+	pf(0.999999999,param);
+	pf(0.9999999999,param);
 
         return EXIT_SUCCESS;
 }

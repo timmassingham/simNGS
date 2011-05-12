@@ -73,9 +73,13 @@ real_t qstdnorm( real_t p, const bool tail, const bool logp){
 
         // Iteration
         for ( int i=0 ; i<it_max ; i++){
-                real_t delta = (ap-pstdnorm(x,tail,false))/dstdnorm(x,false);
+		real_t pmn = pstdnorm(x,tail,false);
+		real_t dmn = dstdnorm(x,false);
+                real_t delta = (ap-pmn)/dmn;
+		if(!finite(delta) || fabs(delta)>sd){ delta=(1-2*signbit(ap-pmn))*sd;}
+		if(isnan(pmn)||isnan(dmn)||isnan(delta)){ abort();}
                 x += delta;
-                if(fabs(delta)/(x+3e-8) < tol){ break;}
+                if(fabs(delta)/(fabs(x)+3e-8) < tol){ break;}
         }
         return x;
 }
