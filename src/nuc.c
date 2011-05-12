@@ -125,6 +125,7 @@ PHREDCHAR phredchar_from_prob( real_t p, const bool doIllumina){
     if(c<MIN_PHRED){c=MIN_PHRED;}
     if(c>MAX_PHRED){c=MAX_PHRED;}
     PHREDCHAR ret = (PHREDCHAR)(c+0.5);
+    if(!finite(p)){ ret = MIN_PHRED; }
     if(ret<MIN_PHRED || ret>MAX_PHRED){ abort();}
     return ret;
 }
