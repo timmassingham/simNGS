@@ -9,11 +9,11 @@ LDFLAGS =  -lm -lc -lblas -llapack
 INCFLAGS = 
 MANDIR = ../man
 DEFINES = -DUSEFLOAT -DHAS_REALLOCF -DUSE_BLAS
-objects =  sfmt.o matrix.o nuc.o intensities.o normal.o weibull.o sequence.o mystring.o simNGS.o utility.o random.o kumaraswamy.o elliptic.o lambda_distribution.o
+objects =  sfmt.o matrix.o nuc.o intensities.o normal.o weibull.o sequence.o mystring.o simNGS.o utility.o random.o kumaraswamy.o elliptic.o lambda_distribution.o mixnormal.o
 
 all: simNGS simLibrary
 
-test: test-normal test-intensities test-elliptic
+test: test-normal test-intensities test-elliptic test-mixnormal
 
 simNGS: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(LDFLAGS) $(objects)
@@ -29,6 +29,9 @@ test-intensities: matrix.o random.o sfmt.o
 
 test-elliptic: matrix.o random.o sfmt.o normal.o
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(LDFLAGS) -DTEST elliptic.c $^
+
+test-mixnormal: matrix.o random.o sfmt.o normal.o
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(LDFLAGS) -DTEST mixnormal.c $^
 
 .c.o:
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o $@ -c $<

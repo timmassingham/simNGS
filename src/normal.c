@@ -62,7 +62,6 @@ real_t pstdnorm( const real_t q, const bool tail, const bool logd){
 real_t qstdnorm(const real_t p, const bool tail, const bool logp){
         const int it_max = 20;
         const real_t tol= 3e-8;
-        if(NULL==param){ return NAN;}
 
         // Initialise
         real_t ap = logp?exp(p):p;

@@ -335,7 +335,8 @@ unsigned int parse_uint( const CSTRING str){
 
 typedef struct {
     unsigned int ncycle;
-    real_t shape1,scale1,shape2,scale2,corr,threshold;
+    real_t corr,threshold;
+    Distribution dist1,dist2;
     enum paired_type paired;
     bool desc;
     real_t mu,generr,sdfact;
@@ -363,10 +364,8 @@ SIMOPT new_SIMOPT(void){
     validate(NULL!=opt,NULL);
     // Set defaults
     opt->ncycle = 0;
-    opt->shape1 = 0.0;
-    opt->scale1 = 0.0;
-    opt->shape2 = 0.0;
-    opt->scale2 = 0.0;
+    opt->dist1 = NULL;
+    opt->dist2 = NULL;
     opt->corr = 1.0;
     opt->threshold = 0.0;
     opt->paired = PAIRED_TYPE_SINGLE;
@@ -423,10 +422,8 @@ void show_SIMOPT (FILE * fp, const SIMOPT simopt){
     fprintf( fp,"paired\t%s\n",paired_type_str[simopt->paired]);
     fprintf( fp,"Brightness correlation\t%f\n",simopt->corr);
     fprintf( fp,"mu\t%f\n",simopt->mu);
-    fprintf( fp,"shape1\t%f\n",simopt->shape1);
-    fprintf( fp,"scale1\t%f\n",simopt->scale1);
-    fprintf( fp,"shape2\t%f\n",simopt->shape2);
-    fprintf( fp,"scale2\t%f\n",simopt->scale2);
+    fputs("Lambda end1:\t",fp); show_Distribution(fp,simopt->dist1);
+    fputs("Lambda end1:\t",fp); show_Distribution(fp,simopt->dist2);
     fprintf( fp,"threshold\t%f\n",simopt->threshold);
     fprintf( fp,"variance factor\t%f\n",simopt->sdfact*simopt->sdfact);
     fprintf( fp,"tile\t%u\tlane%u\n",simopt->tile,simopt->lane);
@@ -463,18 +460,22 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
     while ((ch = getopt_long(argc, argv, "a:b:c:dD:F:f:g:i:Ij:l:mM:n:N:o:p:P:q:r:Rs:t:uv:h", longopts, NULL)) != -1){
         int ret;
         unsigned long int i=0,j=0;
+	real_t param1[2],param2[2];
         switch(ch){
         case 'a':   free_ARRAY(NUC)(simopt->adapter);
                     simopt->adapter = nucs_from_string(optarg);
                     break;
-	case 'b':   ret = sscanf(optarg,real_format_str ":" real_format_str ":" real_format_str ":" real_format_str,&simopt->shape1,&simopt->scale1,&simopt->shape2,&simopt->scale2);
-                    if(ret!=2 || ret!=4){ errx(EXIT_FAILURE,"Insufficient arguments for brightness.");}
+	case 'b':   ret = sscanf(optarg,real_format_str ":" real_format_str ":" real_format_str ":" real_format_str,&param1[0],&param1[1],&param2[0],&param2[1]);
+                    if(ret!=2 && ret!=4){ errx(EXIT_FAILURE,"Incorrect number of arguments for brightness (got %d).",ret);}
 		    if(ret==2){
-			    simopt->shape2 = simopt->shape1;
-			    simopt->scale2 = simopt->scale2;
+			    param2[0] = param1[0];
+			    param2[1] = param1[1];
 		    }
-                    if(simopt->shape1<=0. || simopt->shape2<=0.){ errx(EXIT_FAILURE,"Brightness shape must be greater than zero."); }
-                    if(simopt->scale1<=0. || simopt->scale2<=0.){ errx(EXIT_FAILURE,"Brightness scale must be greater than zero."); }
+                    if(param1[0]<=0. || param2[0]<=0.){ errx(EXIT_FAILURE,"Brightness shape must be greater than zero."); }
+                    if(param1[1]<=0. || param2[1]<=0.){ errx(EXIT_FAILURE,"Brightness scale must be greater than zero."); }
+		    simopt->dist1 = new_Distribution('W',param1);
+		    simopt->dist2 = new_Distribution('W',param2);
+		    show_Distribution(stdout,simopt->dist1);
                     break;
         case 'c':   sscanf(optarg,"%f",&simopt->corr);
                     if(simopt->corr<-1.0 || simopt->corr>1.0){errx(EXIT_FAILURE,"Correlation between end brightness should be in [-1,1]. Was given %f.",simopt->corr);}
@@ -751,7 +752,7 @@ void output_results(FILE * intout, const SIMOPT simopt, const char * seqname, co
 
 struct pair_double { double x1,x2;};
 
-struct pair_double correlated_distribution(const real_t threshold, const real_t corr, const char dist1, const real_t * param1, const char dist2, const real_t * param2){
+struct pair_double correlated_distribution(const real_t threshold, const real_t corr, const Distribution dist1, const Distribution dist2){
 
     // Pick lambda using Gaussian Copula
     real_t lambda1=NAN,lambda2=NAN;
@@ -765,8 +766,9 @@ struct pair_double correlated_distribution(const real_t threshold, const real_t 
         py = pstdnorm(y,false,false);
     } while(px<threshold || py<threshold);
     // Convert to observation via inversion formula
-    lambda1 = qdistribution(px,dist1,param1,false,false);
-    lambda2 = qdistribution(py,dist2,param2,false,false);
+    lambda1 = qdistribution(px,dist1,false,false);
+    lambda2 = qdistribution(py,dist2,false,false);
+    fprintf(stdout,"%f: %f %f\n",px,lambda1,lambda2);
     return (struct pair_double){lambda1,lambda2};
 }
 
@@ -907,15 +909,11 @@ int main( int argc, char * argv[] ){
     
     // Resolve options and model
     // Should factor out into separate routine
-    if(simopt->shape1!=0){
-	    model->dist1 = 'W';
-	    model->param1 = calloc(nparameter_distribution(model->dist1),sizeof(real_t));
-	    model->param1[0] = simopt->shape1;
-	    model->param1[1] = simopt->scale1;
-	    model->dist2 = 'W';
-	    model->param2 = calloc(nparameter_distribution(model->dist2),sizeof(real_t));
-	    model->param2[0] = simopt->shape2;
-	    model->param2[1] = simopt->scale2;
+    if(NULL!=simopt->dist1){
+	    free_Distribution(model->dist1);
+	    model->dist1 = copy_Distribution(simopt->dist1);
+	    free_Distribution(model->dist2);
+	    model->dist2 = copy_Distribution(simopt->dist2);
     }
     if(simopt->generr==-1.0){
 	    simopt->generr = (simopt->mutate)?simopt->mut:0.0;
@@ -969,10 +967,7 @@ int main( int argc, char * argv[] ){
         model->chol2 = copy_MAT(model->chol1);
         model->invchol2 = calloc(model->ncycle,sizeof(*model->invchol2));
 	if(!model->dist2){
-		model->dist2 = model->dist1;
-		int np = nparameter_distribution(model->dist1);
-		model->param2 = calloc(np,sizeof(real_t));
-		memcpy(model->param2,model->param1,np*sizeof(real_t));
+		model->dist2 = copy_Distribution(model->dist1);
 	}
         for ( uint32_t i=0 ; i<model->ncycle ; i++){
             model->invchol2[i] = copy_MAT(model->invchol1[i]);
@@ -1047,7 +1042,7 @@ int main( int argc, char * argv[] ){
             seqstr->paired = model->paired;
             free_SEQ(seq); seq=NULL;
             // Pick copula
-            struct pair_double lambda = correlated_distribution(simopt->threshold,simopt->corr,model->dist1,model->param1,model->dist2,model->param2);
+            struct pair_double lambda = correlated_distribution(simopt->threshold,simopt->corr,model->dist1,model->dist2);
             seqstr->lambda1 = lambda.x1;
             seqstr->lambda2 = lambda.x2;
 

@@ -32,8 +32,9 @@
 
 #define MODEL_FILE_VERSION 5
 
-MODEL new_MODEL(const char * label, const char dist1, const real_t *param1, const char dist2, const real_t * param2, const MAT cov1, const MAT cov2){
+MODEL new_MODEL(const char * label, const Distribution dist1, const Distribution dist2, const MAT cov1, const MAT cov2){
     validate(NULL!=cov1,NULL);
+    validate(NULL!=dist1,NULL);
     MODEL model = calloc(1,sizeof(*model));
     model->paired = false;
     
@@ -84,17 +85,8 @@ MODEL new_MODEL(const char * label, const char dist1, const real_t *param1, cons
         }
     }
     
-    model->dist1 = dist1;
-    int np = nparameter_distribution(dist1);
-    model->param1 = calloc(np,sizeof(real_t));
-    if(NULL==model->param1){ goto cleanup; }
-    memcpy(model->param1,param1,np*sizeof(real_t));
-
-    model->dist2 = dist2;
-    np = nparameter_distribution(dist2);
-    model->param2 = calloc(np,sizeof(real_t));
-    if(NULL==model->param2){ goto cleanup; }
-    memcpy(model->param2,param2,np*sizeof(real_t));
+    model->dist1 = copy_Distribution(dist1);
+    model->dist2 = copy_Distribution(dist2);
     
     return model;
     
@@ -115,8 +107,8 @@ void free_MODEL( MODEL model){
 	safe_free(model->chol1_cycle);
         safe_free(model->invchol1);
     }
-    free(model->param1);
-    free(model->param2);
+    free_Distribution(model->dist1);
+    free_Distribution(model->dist2);
     free_MAT(model->cov2);
     free_MAT(model->chol2);
     if(NULL!=model->invchol2){
@@ -136,18 +128,11 @@ MODEL copy_MODEL( const MODEL model){
     MODEL newmodel      = calloc(1,sizeof(*newmodel));
     newmodel->ncycle    = model->ncycle;
     newmodel->orig_ncycle = model->orig_ncycle;
-    newmodel->dist1     = model->dist1;
-    newmodel->dist2     = model->dist2;
+    newmodel->dist1     = copy_Distribution(model->dist1);
+    newmodel->dist2     = copy_Distribution(model->dist2);
+    if(NULL==newmodel->dist2){ goto cleanup; }
+    if(NULL==newmodel->dist2){ goto cleanup; }
     newmodel->paired    = model->paired;
-
-    int np = nparameter_distribution(model->dist1);
-    newmodel->param1 = calloc(np,sizeof(real_t));
-    if(NULL==newmodel->param1){ goto cleanup; }
-    memcpy(newmodel->param1,model->param1,np*sizeof(real_t));
-    np = nparameter_distribution(newmodel->dist2);
-    newmodel->param2 = calloc(np,sizeof(real_t));
-    if(NULL==newmodel->param2){ goto cleanup; }
-    memcpy(newmodel->param2,model->param2,np*sizeof(real_t));
 
     newmodel->cov1       = copy_MAT(model->cov1);
     if(NULL==newmodel->cov1){ goto cleanup; }
@@ -200,15 +185,12 @@ void show_MODEL( FILE * fp, MODEL model){
     validate(NULL!=model,);
     if(NULL!=model->label){fputs(model->label,fp);}
     fprintf(fp,"Parameters for %u cycle model\n",model->ncycle);
-    fprintf(fp,"Brightness distribution:\n\tEnd1:%c",model->dist1);
-    for ( int i=0 ; i<nparameter_distribution(model->dist1) ; i++){
-        fprintf(fp,"\t%f",model->param1[i]);
-    }
+    fprintf(fp,"Brightness distribution:\n\tEnd1:");
+    show_Distribution(fp,model->dist1);
+
     if(NULL!=model->cov2){
-	    fprintf(fp,"\tEnd2:%c",model->dist2);
-	    for ( int i=0 ; i<nparameter_distribution(model->dist2) ; i++){
-		    fprintf(fp,"\t%f",model->param2[i]);
-	    }
+	    fprintf(fp,"\tEnd2:");
+	    show_Distribution(fp,model->dist2);
 	    fputc('\n',fp);
     } else {
 	    fputc('\n',fp);
@@ -257,48 +239,24 @@ MODEL new_MODEL_from_fp( FILE * fp){
     }
 
     uint32_t ncycle=0;
-    char dist=0;
-    int ret = fscanf(fp, "%"SCNu32 " %c",&ncycle,&dist);
-    int np = nparameter_distribution(dist);
-    real_t * param = calloc(np,sizeof(real_t));
-    for ( int i=0 ; i<np ; i++){
-    	int ret = fscanf(fp,real_format_str,&param[i]);
-	if(ret!=1){
-		errx(EXIT_FAILURE,"Problem parsing distribution parameter %d from model file.",i+1);
-	}
-    }
-    if(!validate_parameters(param,dist)){
-	    errx(EXIT_FAILURE,"Distribution parameters invalid");
-    }
-
+    int ret = fscanf(fp, "%"SCNu32 " ",&ncycle);
+    Distribution dist = new_Distribution_from_fp(fp);
     MAT cov1 = new_MAT_from_fp(fp,ncycle*NBASE,ncycle*NBASE);
 
 
     uint32_t ncycle2=0;
-    char dist2 = '\0';
-    real_t * param2 = NULL;
-    ret = fscanf(fp, "%"SCNu32 " %c",&ncycle2,&dist2);
+    Distribution dist2 = NULL;
+    ret = fscanf(fp, "%"SCNu32 " ",&ncycle2);
     if( ret>0){
-	    if(ret!=2 ){ errx(EXIT_FAILURE,"Problems reading second end of runfile: read %d elts",ret); }
     	    if(ncycle!=ncycle2){ errx(EXIT_FAILURE,"Reading paired-end runfile but ends have differing numbers of cycles (%"SCNu32 " and %"SCNu32 ")",ncycle,ncycle2); }
-	    int np2 = nparameter_distribution(dist2);
-	    param2 = calloc(np2,sizeof(real_t));
-	    for ( int i=0 ; i<np2 ; i++){
-		    int ret = fscanf(fp,real_format_str,&param2[i]);
-		    if(ret!=1){
-			    errx(EXIT_FAILURE,"Problem parsing distribution parameter %d from model file.",i+1);
-		    }
-	    }
-	    if(!validate_parameters(param2,dist)){
-		    errx(EXIT_FAILURE,"Distribution parameters invalid");
-	    }
+	    dist2 = new_Distribution_from_fp(fp);
     }
     MAT cov2 = new_MAT_from_fp(fp,ncycle*NBASE,ncycle*NBASE);
-    MODEL model = new_MODEL(label,dist,param,dist2,param2,cov1,cov2);
+    MODEL model = new_MODEL(label,dist,dist2,cov1,cov2);
     
     if(NULL!=cov2){free_MAT(cov2);};
-    free(param);
-    free(param2);
+    free_Distribution(dist);
+    free_Distribution(dist2);
     free_MAT(cov1);
     safe_free(label);
     return model;
@@ -347,7 +305,7 @@ MODEL trim_MODEL(const uint32_t ncycle, real_t final_factor[4], const MODEL mode
 		}
 	}
 
-	newmod = new_MODEL(model->label,model->dist1,model->param1,model->dist2,model->param2,trimmedVar1,trimmedVar2);
+	newmod = new_MODEL(model->label,model->dist1,model->dist2,trimmedVar1,trimmedVar2);
 	if(NULL==newmod){goto cleanup;}
 
 	free_MAT(trimmedVar2);

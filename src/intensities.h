@@ -25,6 +25,7 @@
 #include "utility.h"
 #include "matrix.h"
 #include "nuc.h"
+#include "lambda_distribution.h"
 
 typedef struct {
     uint32_t ncycle,orig_ncycle;
@@ -33,12 +34,11 @@ typedef struct {
     MAT chol1,chol2;       // Cholesky factorisation of covariance
     MAT * chol1_cycle, * chol2_cycle;
     MAT *invchol1, *invchol2;    // Inverse of cholesky factorisation
-    char dist1, dist2; // Distribution for lambda
-    real_t *param1, *param2; // Parameters for lambda distribution
+    Distribution dist1, dist2; // Distribution for lambda
     char * label;
 } * MODEL;
 
-MODEL new_MODEL(const char * label, const char dist1, const real_t * param1, const char dist2, const real_t * param2, const MAT cov1, const MAT cov2);
+MODEL new_MODEL(const char * label, const Distribution dist1, const Distribution dist2, const MAT cov1, const MAT cov2);
 void free_MODEL(MODEL model);
 MODEL copy_MODEL(const MODEL model);
 void show_MODEL(FILE * fp, const MODEL model);
