@@ -53,9 +53,12 @@ MODEL new_MODEL(const char * label, const char dist1, const real_t *param1, cons
     if(NULL==model->chol1){ goto cleanup; }
     cholesky(model->chol1);
     // Split covariance into cycle
+    model->chol1_cycle = block_diagonal_MAT(model->cov1,NBASE);
+    if(NULL==model->chol1_cycle){ goto cleanup; }
     model->invchol1 = block_diagonal_MAT(model->cov1,NBASE);
     if(NULL==model->invchol1){ goto cleanup; }
     for ( uint32_t i=0 ; i<ncycle ; i++){
+	cholesky(model->chol1_cycle[i]);
         cholesky(model->invchol1[i]);
         invert_cholesky(model->invchol1[i]);
     }
@@ -69,10 +72,13 @@ MODEL new_MODEL(const char * label, const char dist1, const real_t *param1, cons
         model->chol2 = copy_MAT(cov2);
         if(NULL==model->chol2){ goto cleanup; }
         cholesky(model->chol2);
-        
+       
+        model->chol2_cycle = block_diagonal_MAT(model->cov2,NBASE);
+        if(NULL==model->chol2_cycle){ goto cleanup; }       
         model->invchol2 = block_diagonal_MAT(model->cov2,NBASE);
         if(NULL==model->invchol2){ goto cleanup; }
         for ( uint32_t i=0 ; i<ncycle ; i++){
+	    cholesky(model->chol2_cycle[i]);
             cholesky(model->invchol2[i]);
             invert_cholesky(model->invchol2[i]);
         }
@@ -103,8 +109,10 @@ void free_MODEL( MODEL model){
     free_MAT(model->chol1);
     if(NULL!=model->invchol1){
         for( uint32_t i=0 ; i<model->orig_ncycle ; i++){
+            free_MAT(model->chol1_cycle[i]);
             free_MAT(model->invchol1[i]);
         }
+	safe_free(model->chol1_cycle);
         safe_free(model->invchol1);
     }
     free(model->param1);
@@ -113,8 +121,10 @@ void free_MODEL( MODEL model){
     free_MAT(model->chol2);
     if(NULL!=model->invchol2){
         for( uint32_t i=0 ; i<model->orig_ncycle ; i++){
+	    free_MAT(model->chol2_cycle[i]);
             free_MAT(model->invchol2[i]);
         }
+	safe_free(model->chol2_cycle);
         safe_free(model->invchol2);
     }
     safe_free(model->label);
@@ -147,8 +157,14 @@ MODEL copy_MODEL( const MODEL model){
     if(NULL==newmodel->invchol1){ goto cleanup; }
     for ( uint32_t i=0 ; i<model->orig_ncycle ; i++){
         newmodel->invchol1[i]   = copy_MAT(model->invchol1[i]);
+        if(NULL==newmodel->invchol1[i]){ goto cleanup; }
     }
-    if(NULL==newmodel->invchol1){ goto cleanup; }
+    newmodel->chol1_cycle    = calloc(model->orig_ncycle,sizeof(*newmodel->chol1_cycle));
+    if(NULL==newmodel->chol1_cycle){ goto cleanup; }
+    for ( uint32_t i=0 ; i<model->orig_ncycle ; i++){
+        newmodel->chol1_cycle[i]   = copy_MAT(model->chol1_cycle[i]);
+        if(NULL==newmodel->chol1_cycle[i]){ goto cleanup; }
+    }
     
     newmodel->cov2       = copy_MAT(model->cov2);
     if(NULL==newmodel->cov2){ goto cleanup; }
@@ -158,8 +174,14 @@ MODEL copy_MODEL( const MODEL model){
     if(NULL==newmodel->invchol2){ goto cleanup; }
     for ( uint32_t i=0 ; i<model->orig_ncycle ; i++){
         newmodel->invchol2[i]   = copy_MAT(model->invchol2[i]);
+        if(NULL==newmodel->invchol2[i]){ goto cleanup; }
     }
-    if(NULL==newmodel->invchol2){ goto cleanup; }
+    newmodel->chol2_cycle    = calloc(model->orig_ncycle,sizeof(*newmodel->chol2_cycle));
+    if(NULL==newmodel->chol2_cycle){ goto cleanup; }
+    for ( uint32_t i=0 ; i<model->orig_ncycle ; i++){
+        newmodel->chol2_cycle[i]   = copy_MAT(model->chol2_cycle[i]);
+        if(NULL==newmodel->chol2_cycle[i]){ goto cleanup; }
+    }
     
     if(NULL!=model->label){
         newmodel->label = calloc(1+strlen(model->label),sizeof(char));
@@ -347,11 +369,9 @@ MODEL new_MODEL_from_file( const CSTRING filename ){
     return model;
 }
 
-const real_t logmean = 5.07;
-const real_t logsd = 1.088;
 MAT generate_pure_intensities ( 
     const real_t sdfact, const real_t lambda, const ARRAY(NUC) seq, 
-    const ARRAY(NUC) adapter, const uint32_t ncycle, const MAT chol, 
+    const ARRAY(NUC) adapter, const uint32_t ncycle, const MAT * chol, 
     const real_t dustProb, const MAT invM, const MAT invP, const MAT N, MAT ints){
     validate(NULL!=seq.elt,NULL);
     validate(NULL!=chol,NULL);
@@ -360,8 +380,9 @@ MAT generate_pure_intensities (
         validate(NULL!=ints,NULL);
     }
     
-    rmultinorm(NULL,chol,NBASE*ncycle,ints);
+    //rmultinorm(NULL,chol,NBASE*ncycle,ints);
     //relliptic(NULL,chol,normal_radius,NBASE*ncycle,ints);
+    relliptic_cycle(NULL,chol,lognormal_radius,NBASE*ncycle,ints);
     reshape_MAT(ints,NBASE);
     if(1.0!=sdfact){scale_MAT(ints,sdfact);}
     for ( uint32_t i=0 ; i<ncycle ; i++){
@@ -387,7 +408,6 @@ MAT generate_pure_intensities (
 		    ints->x[i*NBASE+j] += dustval * invM->x[4+j] * invP->x[i*ncycle+cy];
 		}
 	    }
-	    fprintf(stderr,"Dust at cycle %d\n",cy);
 	}
     }
     
@@ -423,6 +443,9 @@ MAT likelihood_cycle_intensities ( const real_t sdfact, real_t mu, const real_t 
     validate(NULL!=ints,NULL);
     validate(NULL!=invchol,NULL);
     const uint32_t ncycle = ints->ncol;
+    const real_t logsd = 1.088;
+    const real_t logmean = log(NBASE)-logsd*logsd*0.5;
+
     
     if(NULL==like){
         like = new_MAT(NBASE,ncycle);
@@ -434,11 +457,11 @@ MAT likelihood_cycle_intensities ( const real_t sdfact, real_t mu, const real_t 
         for ( int j=0 ; j<NBASE ; j++){
             memcpy(tmp->x,ints->x+i*NBASE,NBASE*sizeof(real_t));
             tmp->x[j] -= lambda;
-            like->x[i*NBASE+j] = -dchisq4(lss(tmp,invchol[i])/(sdfact*sdfact),true);
+            //like->x[i*NBASE+j] = -dchisq4(lss(tmp,invchol[i])/(sdfact*sdfact),true);
             // log-likelihood of log-normal distribution
- 	    /*real_t t = lss(tmp,invchol[i])/(sdfact*sdfact);
+ 	    real_t t = lss(tmp,invchol[i])/(sdfact*sdfact);
  	    real_t del = (log(t)-logmean)/logsd;
- 	    like->x[i*NBASE+j] = del*del/(8.0*logsd*logsd) + 2.0 * log(t); // + logsd*logsd - 2.0*logmean;*/
+ 	    like->x[i*NBASE+j] = del*del/2.0 + 2.0 * log(t); // + logsd*logsd - 2.0*logmean;
 
         }
     }

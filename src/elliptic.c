@@ -24,6 +24,7 @@
 #include "lapack.h"
 #include "normal.h"
 
+#define NBASE 4
 
 // Normal generator, squared radius is chi-sq
 real_t normal_radius( int n){
@@ -34,9 +35,55 @@ real_t normal_radius( int n){
 static real_t lognormal_mean = 5.07;
 static real_t lognormal_sd = 1.088;
 real_t lognormal_radius( int n ){
-	return sqrt( rlognorm(lognormal_mean,lognormal_sd) );
+	return sqrt( rlognorm(log(n)-0.5*lognormal_sd*lognormal_sd,lognormal_sd) );
 }
 
+MAT relliptic_cycle ( const MAT mean, const MAT * L, real_t (*randomradius)(int), const uint32_t n, MAT z){
+    if ( NULL==z){
+        z = new_MAT(n,1);
+        validate(NULL!=z,NULL);
+    }
+
+    int ncy = n/4;
+    for ( int cy=0 ; cy<ncy ; cy++){
+        int offset = cy * NBASE; 
+        // Generate initial random variable uniform on n-sphere
+        real_t norm = 0.;
+        for ( int i=0 ; i<NBASE ; i++){
+            z->x[offset+i] = rstdnorm();
+            norm += z->x[offset+i]*z->x[offset+i];
+        }
+        norm = sqrt(norm);
+        for ( int i=0 ; i<NBASE ; i++){
+            z->x[offset+i] /= norm;
+        }
+
+        if(NULL!=L){
+            for ( int i=3 ; i>=0 ; i--){
+                z->x[offset+i] *= L[cy]->x[i*NBASE+i];
+                for ( int j=0 ; j<i ; j++){
+                    z->x[offset+i] += z->x[offset+j] * L[cy]->x[i*NBASE+j];
+                }
+            }
+        }
+
+        // Multiply by radius
+        real_t r = randomradius(NBASE);
+        //fprintf(stderr,"Radius = %f\t%f %f %f %f\n",r,z->x[offset+0],z->x[offset+1],z->x[offset+2],z->x[offset+3]);
+        for ( int i=0 ; i<NBASE ; i++){
+            z->x[offset+i] *= r;
+        }
+    }
+
+    if(NULL!=mean){
+        for ( int i=0 ; i<n ; i++){
+            z->x[i] += mean->x[i];
+        }
+    }
+
+    return z;
+
+    }
 
 /* Generate multivariate normal obserations
  * L is a upper/lower Cholesky factorisation of the variance matrix as produced

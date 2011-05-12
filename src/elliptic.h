@@ -30,6 +30,7 @@ real_t lognormal_radius( int n );
 real_t normal_radius( int n);
 
 MAT relliptic ( const MAT mean, const MAT L, real_t (*randomradius)(int), const uint32_t n, MAT z);
+MAT relliptic_cycle ( const MAT mean, const MAT * L, real_t (*randomradius)(int), const uint32_t n, MAT z);
 
 #endif
 

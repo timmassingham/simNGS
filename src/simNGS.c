@@ -1052,10 +1052,10 @@ int main( int argc, char * argv[] ){
             seqstr->lambda2 = lambda.x2;
 
             // Generate intensities
-            seqstr->int1 = generate_pure_intensities(simopt->sdfact,lambda.x1,seqstr->seq,simopt->adapter,model->ncycle,model->chol1,simopt->dustProb,simopt->invM,simopt->invP,simopt->N,NULL);
+            seqstr->int1 = generate_pure_intensities(simopt->sdfact,lambda.x1,seqstr->seq,simopt->adapter,model->ncycle,model->chol1_cycle,simopt->dustProb,simopt->invM,simopt->invP,simopt->N,NULL);
             if ( model->paired ){
                 seqstr->rcseq = reverse_complement(seqstr->seq);
-                seqstr->int2 = generate_pure_intensities(simopt->sdfact,lambda.x2,seqstr->rcseq,simopt->adapter,model->ncycle,model->chol2,simopt->dustProb,simopt->invM,simopt->invP,simopt->N,NULL);
+                seqstr->int2 = generate_pure_intensities(simopt->sdfact,lambda.x2,seqstr->rcseq,simopt->adapter,model->ncycle,model->chol2_cycle,simopt->dustProb,simopt->invM,simopt->invP,simopt->N,NULL);
             }
             // Store in buffer
             SEQSTR popped = push_circbuff_SEQSTR(circbuff,seqstr);

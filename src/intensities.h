@@ -31,6 +31,7 @@ typedef struct {
     bool paired;    // Was read paired?
     MAT cov1,cov2;  // Covariance
     MAT chol1,chol2;       // Cholesky factorisation of covariance
+    MAT * chol1_cycle, * chol2_cycle;
     MAT *invchol1, *invchol2;    // Inverse of cholesky factorisation
     char dist1, dist2; // Distribution for lambda
     real_t *param1, *param2; // Parameters for lambda distribution
@@ -47,7 +48,7 @@ MODEL trim_MODEL(const uint32_t ncycle, real_t final_factor[4], const MODEL mode
 MODEL new_MODEL_from_fp( FILE * fp );
 MODEL new_MODEL_from_file( const CSTRING filename);
 
-MAT generate_pure_intensities ( const real_t varfact, const real_t lambda, const ARRAY(NUC) seq, const ARRAY(NUC) adapter, const uint32_t ncycle, const MAT chol, const real_t dustProb, const MAT invM, const MAT invP, const MAT N, MAT ints);
+MAT generate_pure_intensities ( const real_t varfact, const real_t lambda, const ARRAY(NUC) seq, const ARRAY(NUC) adapter, const uint32_t ncycle, const MAT * chol, const real_t dustProb, const MAT invM, const MAT invP, const MAT N, MAT ints);
 MAT likelihood_cycle_intensities ( const real_t varfact, real_t mu, const real_t lambda, const MAT ints, const MAT invchol[], MAT like);
 void fprint_intensities(FILE * fp, const char * prefix, const MAT ints, const bool last);
 ARRAY(NUC) call_by_maximum_likelihood(const MAT likelihood, ARRAY(NUC) calls);
