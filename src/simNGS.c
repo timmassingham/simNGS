@@ -768,7 +768,6 @@ struct pair_double correlated_distribution(const real_t threshold, const real_t 
     // Convert to observation via inversion formula
     lambda1 = qdistribution(px,dist1,false,false);
     lambda2 = qdistribution(py,dist2,false,false);
-    fprintf(stdout,"%f: %f %f\n",px,lambda1,lambda2);
     return (struct pair_double){lambda1,lambda2};
 }
 
