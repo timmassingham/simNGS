@@ -477,12 +477,12 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
 		    simopt->dist2 = new_Distribution('W',param2);
 		    show_Distribution(stdout,simopt->dist1);
                     break;
-        case 'c':   sscanf(optarg,"%f",&simopt->corr);
+        case 'c':   sscanf(optarg,real_format_str,&simopt->corr);
                     if(simopt->corr<-1.0 || simopt->corr>1.0){errx(EXIT_FAILURE,"Correlation between end brightness should be in [-1,1]. Was given %f.",simopt->corr);}
                     break;
         case 'd':   simopt->desc = true;
                     break;
-	case 'D':   sscanf(optarg,"%f",&simopt->dustProb);
+	case 'D':   sscanf(optarg,real_format_str,&simopt->dustProb);
 		    if(simopt->dustProb<0.0 || simopt->dustProb>1.0){errx(EXIT_FAILURE,"Dust probability should be in [0,1]. Was given %f.",simopt->dustProb);}
 		    break;
 	case 'F':   ret = sscanf(optarg, real_format_str ":" real_format_str ":" real_format_str ":" real_format_str ,&simopt->final_factor[0],&simopt->final_factor[1],&simopt->final_factor[2],&simopt->final_factor[3]);
