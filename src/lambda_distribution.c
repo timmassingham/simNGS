@@ -167,7 +167,9 @@ bool validate_parameters(const Distribution dist){
 				if(normmix->prob[i]<0.|| normmix->prob[i]>1.){ return false; }  //prob
 				sum += normmix->prob[i];
 			  }
-			  if(fabs(sum-1.0)<3e-8){ return false; }  // sum mixture probs
+			  for ( int i=0 ; i<normmix->nmix ; i++){
+				  normmix->prob[i] /= sum;
+			  }
 			  break;
 		default: errx(EXIT_FAILURE,"Unrecognised distribution in %s",__func__);
 	}
@@ -175,6 +177,7 @@ bool validate_parameters(const Distribution dist){
 }
 
 real_t qdistribution(const real_t px, const Distribution dist, const bool tail, const bool logp){
+	if(NULL==dist){ return NAN; }
 	switch(dist->key){
 		case 0:   return 0;
 		case 'W': return qweibull(px,dist->param[0],dist->param[1],tail,logp);
