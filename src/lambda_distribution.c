@@ -60,14 +60,10 @@ Distribution new_Distribution(const char type, const real_t * param){
 		case 'M': normmix = new_NormMixParam( (int)param[0] );
 			  if(NULL==normmix){ goto cleanup;}
 			  dist->info = (void *)normmix;
-			  for ( int i=0 ; i<normmix->nmix ; i++){
-				  normmix->prob[i] = param[i+1];
-			  }
-			  for ( int i=0 ; i<normmix->nmix ; i++){
-				  normmix->mean[i] = param[i+1+normmix->nmix];
-			  }
-			  for ( int i=0 ; i<normmix->nmix ; i++){
-				  normmix->sd[i] = param[i+1+2*normmix->nmix];
+			  for ( int i=0,j=1 ; i<normmix->nmix ; i++){
+				  normmix->prob[i] = param[j++];
+				  normmix->mean[i] = param[j++];
+				  normmix->sd[i] = param[j++];
 			  }
 			  break;
 		case 'L': 
@@ -113,15 +109,9 @@ Distribution new_Distribution_from_fp(FILE * fp){
 			  dist->info = (void *)normmix;
 			  for(int i=0 ; i<dist->np ; i++){
 				  int ret = fscanf(fp,real_format_str,&normmix->prob[i]);
-				  if(1!=ret){ goto cleanup;}
-			  }
-			  for(int i=0 ; i<dist->np ; i++){
-				  int ret = fscanf(fp,real_format_str,&normmix->mean[i]);
-				  if(1!=ret){ goto cleanup;}
-			  }
-			  for(int i=0 ; i<dist->np ; i++){
-				  int ret = fscanf(fp,real_format_str,&normmix->mean[i]);
-				  if(1!=ret){ goto cleanup;}
+				  ret += fscanf(fp,real_format_str,&normmix->mean[i]);
+				  ret += fscanf(fp,real_format_str,&normmix->sd[i]);
+				  if(3!=ret){ goto cleanup;}
 			  }
 			  dist->np = 3*dist->np-1;
 			  break;
