@@ -58,9 +58,9 @@ void fprint_usage( FILE * fp){
 "Split sequence into a simulated library of fragments\n"
 "\n"
 "Usage:\n"
-"\t" PROGNAME " [-b bias] [-c cov] [-i insertlen] [-m multiplier_file]\n"
-"\t         [-n nfragments] -p [-r readlen] [-s strand] [-v variance]\n"
-"\t         [-x coverage] [--seed seed] seq1.fa ...\n"
+"\t" PROGNAME " [-b bias] [-c cov] [-g lower:upper] [-i insertlen]\n"
+"\t           [-m multiplier_file] [-n nfragments] -p [-r readlen] [-s strand]\n"
+"\t           [-v variance] [-x coverage] [--seed seed] seq1.fa ...\n"
 "\t" PROGNAME " --help\n"
 "\t" PROGNAME " --licence\n"
 "\t" PROGNAME " --version\n"
@@ -105,6 +105,10 @@ void fprint_help( FILE * fp){
 "ratio of the variance to the mean^2 and is related to the variance of the\n"
 "log-normal distribution by cov = exp(var)-1. If the variance option is set,\n"
 "it takes presidence.\n"
+"\n"
+"-g, --gel_cut lower:upper [default: no cut]\n"
+"\tStrict lower and upper boundaries for fragment length, representing a\n"
+"\"cut\" of a gel. The default is no boundaries.\n"
 "\n"
 "-i, --insert insert_length [default: " QUOTE(DEFAULT_INSERT) "]\n"
 "\tMean length of insert. The mean length of the reads sampled is the\n"
@@ -155,6 +159,7 @@ void fprint_help( FILE * fp){
 static struct option longopts[] = {
     { "bias",       required_argument, NULL, 'b'},
     { "cov",        required_argument, NULL, 'c'},
+    { "gel_cut",    required_argument, NULL, 'g'},
     { "insert",     required_argument, NULL, 'i'},
     { "multipliers",required_argument, NULL, 'm'},
     { "nfragments", required_argument, NULL, 'n'},
@@ -166,7 +171,8 @@ static struct option longopts[] = {
     { "coverage",   required_argument, NULL, 'x'},
     { "help",       no_argument,       NULL, 'h'},
     { "licence",    no_argument,       NULL, 0 },
-    { "version",    no_argument,       NULL, 1 }
+    { "version",    no_argument,       NULL, 1 },
+    { NULL, 0 , NULL, 0}
 };
 
 typedef struct {
@@ -176,6 +182,7 @@ typedef struct {
     real_t variance,cov,strand_bias,coverage;
     enum strand_opt strand;
     FILE * multiplier_fp;
+    real_t cut_lower, cut_upper;
 } * OPT;
 
 OPT new_OPT(void){
@@ -192,6 +199,7 @@ OPT new_OPT(void){
     opt->strand_bias = DEFAULT_BIAS;
     opt->strand = STRAND_RANDOM;
     opt->multiplier_fp = NULL;
+    opt->cut_lower = 0; opt->cut_upper = HUGE_VAL;
     return opt;
 }
 
@@ -225,11 +233,11 @@ unsigned int parse_uint( const CSTRING str){
 }
 
 OPT parse_options(const int argc, char * const argv[] ){
-    int ch;
+    int ch,ret;
     OPT opt = new_OPT();
     validate(NULL!=opt,NULL);
     
-    while ((ch = getopt_long(argc, argv, "b:c:i:m:n:pr:s:v:x:h", longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "b:c:g:i:m:n:pr:s:v:x:h", longopts, NULL)) != -1){
         switch(ch){
         case 'b':
             opt->strand_bias = parse_real(optarg);
@@ -238,6 +246,17 @@ OPT parse_options(const int argc, char * const argv[] ){
         case 'c':
             opt->cov = parse_real(optarg);
             if(opt->cov<0.0){errx(EXIT_FAILURE,"Coefficient Of Variance of for insert size should be non-zero");}
+            break;
+	case 'g':
+	    ret = sscanf(optarg, real_format_str ":" real_format_str ,&opt->cut_lower,&opt->cut_upper);
+	    if(ret<1){
+		    // Try reading just second value
+		    ret = sscanf(optarg, ":" real_format_str,&opt->cut_upper);
+		    if(ret<1){ errx(EXIT_FAILURE,"Failed to read gel cuts");}
+	    }
+	    if(opt->cut_lower<0 || opt->cut_upper<0 || opt->cut_lower>=opt->cut_upper){
+		   errx(EXIT_FAILURE,"Invalid bounds for -gel_cut (%e,%e)",opt->cut_lower,opt->cut_upper);
+	    }
             break;
         case 'i':
             opt->insertlen = parse_uint(optarg);
@@ -291,6 +310,17 @@ OPT parse_options(const int argc, char * const argv[] ){
     }
     return opt;
 }
+
+real_t rlognorm_with_cuts(real_t logmean, real_t logsd, real_t lower, real_t upper){
+	real_t PhiLogupper = finite(upper)?pnorm(log(upper),logmean,logsd,false,false):1.0;
+	real_t PhiLoglower = (lower>0)?pnorm(log(lower),logmean,logsd,false,false):0.0;
+
+	real_t p = runif()*(PhiLogupper-PhiLoglower) + PhiLoglower;
+
+	return exp(qnorm(p,logmean,logsd,false,false));
+}
+
+
 
 int main ( int argc, char * argv[]){
     
@@ -352,7 +382,7 @@ int main ( int argc, char * argv[]){
             // Number of fragments
             uint32_t nfragment = multiplier * ( (opt->nfragment)?opt->nfragment:nfragment_from_coverage(seq->length,opt->coverage,opt->ncycle,opt->paired) );
             for ( uint32_t i=0 ; i<nfragment ; i++,tot_fragments++){
-                const uint32_t fraglen = (opt->paired)?(uint32_t)(exp(rnorm(log_mean,log_sd))):opt->ncycle;
+                const uint32_t fraglen = (opt->paired)?(uint32_t)(rlognorm_with_cuts(log_mean,log_sd,opt->cut_lower,opt->cut_upper)):opt->ncycle;
                 if(fraglen>seq->length){
                      if(0==skipped_seq){
                          warnx("Length of fragment (2*readlen+insert) is greater than sequence length. Skipping");

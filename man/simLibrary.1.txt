@@ -8,9 +8,10 @@ simLibrary - split sequences into a simulated library of fragments
 
 SYNOPSIS
 --------
-*simLibrary* 	[-b bias] [-c cov] [-i insertlen] [-m multiplier_file]
-                [-n nfragments] -p [-r readlen] [-s strand] 
-                [-v variance] [-x coverage] [--seed seed] seq1.fa ...
+*simLibrary* 	[-b bias] [-c cov] [-g lower:upper] [-i insertlen]
+	        [-m multiplier_file] [-n nfragments] -p [-r readlen] [-s strand]
+	        [-v variance] [-x coverage] [--seed seed] seq1.fa ...
+
 
 *simLibrary* --help
 
@@ -32,6 +33,13 @@ positive strand.
 ratio of the variance to the mean^2 and is related to the variance of the
 log-normal distribution by cov = exp(var)-1. If the variance option is set,
 it takes presidence.
+
+*-g, --gel_cut* lower:upper [default: no cut]::
+	Strict lower and upper boundaries for fragment length, representing a
+"cut" of a gel. The default is no boundaries.
+The cut may be specified as lower:upper, lower: or :upper depending on
+whether both thresholds or just one are required.
+
 
 *-i, --insert* insert_length [default: 400]::
 	Mean length of insert. The mean length of the reads sampled is the
