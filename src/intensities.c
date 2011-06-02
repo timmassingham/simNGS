@@ -63,26 +63,27 @@ MODEL new_MODEL(const char * label, const Distribution dist1, const Distribution
         cholesky(model->invchol1[i]);
         invert_cholesky(model->invchol1[i]);
     }
-    
+   
+    // If variance for second end is not given, make it equal to first 
     if( NULL!=cov2 ){
-        if( (cov2->ncol!=cov1->ncol) || (cov2->nrow!=cov1->nrow) ){ goto cleanup;} // Matrices not 
-        model->paired = true;
-        model->cov2 = copy_MAT(cov2);
-        if(NULL==model->cov2){ goto cleanup; }
-        
-        model->chol2 = copy_MAT(cov2);
-        if(NULL==model->chol2){ goto cleanup; }
-        cholesky(model->chol2);
-       
-        model->chol2_cycle = block_diagonal_MAT(model->cov2,NBASE);
-        if(NULL==model->chol2_cycle){ goto cleanup; }       
-        model->invchol2 = block_diagonal_MAT(model->cov2,NBASE);
-        if(NULL==model->invchol2){ goto cleanup; }
-        for ( uint32_t i=0 ; i<ncycle ; i++){
-	    cholesky(model->chol2_cycle[i]);
-            cholesky(model->invchol2[i]);
-            invert_cholesky(model->invchol2[i]);
-        }
+    	if( (cov2->ncol!=cov1->ncol) || (cov2->nrow!=cov1->nrow) ){ goto cleanup;} // Matrices not consistent
+    	model->paired = true;
+    	model->cov2 = copy_MAT(cov2);
+    	if(NULL==model->cov2){ goto cleanup; }
+
+    	model->chol2 = copy_MAT(cov2);
+    	if(NULL==model->chol2){ goto cleanup; }
+    	cholesky(model->chol2);
+
+    	model->chol2_cycle = block_diagonal_MAT(model->cov2,NBASE);
+    	if(NULL==model->chol2_cycle){ goto cleanup; }       
+    	model->invchol2 = block_diagonal_MAT(model->cov2,NBASE);
+    	if(NULL==model->invchol2){ goto cleanup; }
+    	for ( uint32_t i=0 ; i<ncycle ; i++){
+        	cholesky(model->chol2_cycle[i]);
+        	cholesky(model->invchol2[i]);
+        	invert_cholesky(model->invchol2[i]);
+    	}
     }
     
     model->dist1 = copy_Distribution(dist1);
@@ -113,11 +114,15 @@ void free_MODEL( MODEL model){
     free_MAT(model->chol2);
     if(NULL!=model->invchol2){
         for( uint32_t i=0 ; i<model->orig_ncycle ; i++){
-	    free_MAT(model->chol2_cycle[i]);
-            free_MAT(model->invchol2[i]);
+	    free_MAT(model->invchol2[i]);
         }
-	safe_free(model->chol2_cycle);
-        safe_free(model->invchol2);
+	safe_free(model->invchol2);
+    }
+    if(NULL!=model->chol2_cycle){
+	    for( uint32_t i=0 ; i<model->orig_ncycle ; i++){
+		    free_MAT(model->chol2_cycle[i]);
+	    }
+	    safe_free(model->chol2_cycle);
     }
     safe_free(model->label);
     safe_free(model);
@@ -150,22 +155,24 @@ MODEL copy_MODEL( const MODEL model){
         newmodel->chol1_cycle[i]   = copy_MAT(model->chol1_cycle[i]);
         if(NULL==newmodel->chol1_cycle[i]){ goto cleanup; }
     }
-    
-    newmodel->cov2       = copy_MAT(model->cov2);
-    if(NULL==newmodel->cov2){ goto cleanup; }
-    newmodel->chol2      = copy_MAT(model->chol2);
-    if(NULL==newmodel->chol2){ goto cleanup; }
-    newmodel->invchol2    = calloc(model->orig_ncycle,sizeof(*newmodel->invchol2));
-    if(NULL==newmodel->invchol2){ goto cleanup; }
-    for ( uint32_t i=0 ; i<model->orig_ncycle ; i++){
-        newmodel->invchol2[i]   = copy_MAT(model->invchol2[i]);
-        if(NULL==newmodel->invchol2[i]){ goto cleanup; }
-    }
-    newmodel->chol2_cycle    = calloc(model->orig_ncycle,sizeof(*newmodel->chol2_cycle));
-    if(NULL==newmodel->chol2_cycle){ goto cleanup; }
-    for ( uint32_t i=0 ; i<model->orig_ncycle ; i++){
-        newmodel->chol2_cycle[i]   = copy_MAT(model->chol2_cycle[i]);
-        if(NULL==newmodel->chol2_cycle[i]){ goto cleanup; }
+   
+    if(NULL!=model->cov2){
+    	newmodel->cov2       = copy_MAT(model->cov2);
+    	if(NULL==newmodel->cov2){ goto cleanup; }
+    	newmodel->chol2      = copy_MAT(model->chol2);
+    	if(NULL==newmodel->chol2){ goto cleanup; }
+    	newmodel->invchol2    = calloc(model->orig_ncycle,sizeof(*newmodel->invchol2));
+    	if(NULL==newmodel->invchol2){ goto cleanup; }
+    	for ( uint32_t i=0 ; i<model->orig_ncycle ; i++){
+        	newmodel->invchol2[i]   = copy_MAT(model->invchol2[i]);
+        	if(NULL==newmodel->invchol2[i]){ goto cleanup; }
+    	}
+    	newmodel->chol2_cycle    = calloc(model->orig_ncycle,sizeof(*newmodel->chol2_cycle));
+    	if(NULL==newmodel->chol2_cycle){ goto cleanup; }
+    	for ( uint32_t i=0 ; i<model->orig_ncycle ; i++){
+        	newmodel->chol2_cycle[i]   = copy_MAT(model->chol2_cycle[i]);
+        	if(NULL==newmodel->chol2_cycle[i]){ goto cleanup; }
+    	}
     }
     
     if(NULL!=model->label){
