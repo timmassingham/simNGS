@@ -232,6 +232,11 @@ void fprint_help( FILE * fp){
 "\tFormat in which to output results. Either \"likelihood\", \"fasta\",\n"
 "or \"fastq\".\n"
 "\n"
+"-O, --outfile prefix [default: stdout]\n"
+"\tPrefix of filenames to output results. If simulating paired-end\n"
+"reads and \"paired\" is set, each end is writen to a separate file. By\n"
+"default, ends are intermingled and written to stdout.\n"
+"\n"
 "-p, --paired option [default: single]\n"
 "\tTreat run as paired-end.\n"
 "Valid options are: \"single\", \"paired\", \"cycle\".\n"
@@ -288,6 +293,7 @@ static struct option longopts[] = {
     { "ncycle",     required_argument, NULL, 'n' },
     { "noise",      required_argument, NULL, 'N' },
     { "output",     required_argument, NULL, 'o' },
+    { "outfile",    required_argument, NULL, 'O' },
     { "paired",     required_argument, NULL, 'p' },
     { "phasing",    required_argument, NULL, 'P' },
     { "quantile",   required_argument, NULL, 'q' },
@@ -357,6 +363,8 @@ typedef struct {
     MAT M,P,N;
     MAT invM,invP,Mt,Pt;
     bool illumina,dumpRaw;
+    char * outprefix;
+    FILE * outfp[2];
 } * SIMOPT;
 
 SIMOPT new_SIMOPT(void){
@@ -393,6 +401,9 @@ SIMOPT new_SIMOPT(void){
     opt->Mt = opt->Pt = NULL;
     opt->illumina = false;
     opt->dumpRaw = false;
+    opt->outprefix = NULL;
+    opt->outfp[0] = stdout;
+    opt->outfp[1] = stdout;
     return opt;
 }
 
@@ -457,7 +468,7 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
     SIMOPT simopt = new_SIMOPT();
     validate(NULL!=simopt,NULL);
     
-    while ((ch = getopt_long(argc, argv, "a:b:c:dD:F:f:g:i:Ij:l:mM:n:N:o:p:P:q:r:Rs:t:uv:h", longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "a:b:c:dD:F:f:g:i:Ij:l:mM:n:N:o:O:p:P:q:r:Rs:t:uv:h", longopts, NULL)) != -1){
         int ret;
         unsigned long int i=0,j=0;
 	real_t param1[2],param2[2];
@@ -560,6 +571,8 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
                         errx(EXIT_FAILURE,"Unrecognised output option %s.",optarg);
                     }
                     break;
+	case 'O':   simopt->outprefix = copy_CSTRING(optarg);
+		    break;
         case 'p':   if( strcasecmp(optarg,paired_type_str[PAIRED_TYPE_SINGLE])==0 ){
                         simopt->paired = PAIRED_TYPE_SINGLE;
                     } else if ( strcasecmp(optarg,paired_type_str[PAIRED_TYPE_PAIRED])==0 ){
@@ -648,11 +661,11 @@ void output_likelihood(const SIMOPT simopt, const uint32_t x, const uint32_t y, 
 	switch(simopt->paired){
 	case PAIRED_TYPE_SINGLE:
 	case PAIRED_TYPE_CYCLE:
-		output_likelihood_sub(stdout,simopt,x,y,called1,called2);
+		output_likelihood_sub(simopt->outfp[0],simopt,x,y,called1,called2);
 		break;
 	case PAIRED_TYPE_PAIRED:
-		output_likelihood_sub(stdout,simopt,x,y,called1,NULL);
-		output_likelihood_sub(stdout,simopt,x,y,called2,NULL);
+		output_likelihood_sub(simopt->outfp[0],simopt,x,y,called1,NULL);
+		output_likelihood_sub(simopt->outfp[1],simopt,x,y,called2,NULL);
 		break;
 	default:
 		errx(EXIT_FAILURE,"Unrecognised case %s (%s:%d)",__func__,__FILE__,__LINE__);
@@ -694,14 +707,15 @@ void output_fastq_sub(FILE * fp, const SIMOPT simopt, const char * seqname, cons
 }
 
 void output_fasta(const SIMOPT simopt, const char * seqname, const CALLED called1, const CALLED called2){
+	const bool use_suff = (simopt->outfp[0]==simopt->outfp[1]);
         switch(simopt->paired){
         case PAIRED_TYPE_SINGLE:
         case PAIRED_TYPE_CYCLE:
-                output_fasta_sub(stdout,simopt,seqname,"",called1,called2);
+                output_fasta_sub(simopt->outfp[0],simopt,seqname,"",called1,called2);
                 break;
         case PAIRED_TYPE_PAIRED:
-                output_fasta_sub(stdout,simopt,seqname,"/1",called1,NULL);
-                output_fasta_sub(stdout,simopt,seqname,"/2",called2,NULL);
+                output_fasta_sub(simopt->outfp[0],simopt,seqname,use_suff?"/1":"",called1,NULL);
+                output_fasta_sub(simopt->outfp[1],simopt,seqname,use_suff?"/2":"",called2,NULL);
                 break;
         default:
                 errx(EXIT_FAILURE,"Unrecognised case %s (%s:%d)",__func__,__FILE__,__LINE__);
@@ -711,14 +725,15 @@ void output_fasta(const SIMOPT simopt, const char * seqname, const CALLED called
 
 
 void output_fastq(const SIMOPT simopt, const char * seqname, const CALLED called1, const CALLED called2){
+	const bool use_suff = (simopt->outfp[0]==simopt->outfp[1]);
 	switch(simopt->paired){
 	case PAIRED_TYPE_SINGLE:
         case PAIRED_TYPE_CYCLE:
-		output_fastq_sub(stdout,simopt,seqname,"",called1,called2);
+		output_fastq_sub(simopt->outfp[0],simopt,seqname,"",called1,called2);
 		break;
 	case PAIRED_TYPE_PAIRED:
-		output_fastq_sub(stdout,simopt,seqname,"/1",called1,NULL);
-		output_fastq_sub(stdout,simopt,seqname,"/2",called2,NULL);
+		output_fastq_sub(simopt->outfp[0],simopt,seqname,use_suff?"/1":"",called1,NULL);
+		output_fastq_sub(simopt->outfp[1],simopt,seqname,use_suff?"/2":"",called2,NULL);
 		break;
 	default:
 		errx(EXIT_FAILURE,"Unrecognised case %s (%s:%d)",__func__,__FILE__,__LINE__);
@@ -1010,6 +1025,49 @@ int main( int argc, char * argv[] ){
     if ( NULL==fpout && NULL!=simopt->intensity_fn){
         fprintf(stderr,"Failed to open \"%s\" for writing.\n",simopt->intensity_fn);
     }
+    if(NULL!=simopt->outprefix){
+	    size_t preflen = strlen(simopt->outprefix);
+	    size_t fnlen = preflen;
+            if(simopt->paired==PAIRED_TYPE_PAIRED){ fnlen += 5; }
+	    fnlen += (simopt->format==OUTPUT_LIKE)?5:3;
+
+	    // Create new filename
+	    char fn[1+fnlen];
+	    strcpy(fn,simopt->outprefix);		// Prefix
+	    size_t offset = preflen;
+	    if(simopt->paired==PAIRED_TYPE_PAIRED){
+	    	strcpy(fn+offset,"_end");		// endedness
+		offset += 5;
+	    }
+	    switch(simopt->format){
+		    case OUTPUT_LIKE: strcpy(fn+offset,".like"); offset+=5; break;
+		    case OUTPUT_FASTQ: strcpy(fn+offset,".fq"); offset+=3; break;
+		    case OUTPUT_FASTA: strcpy(fn+offset,".fa"); offset+=3; break;
+	    }
+	    *(fn+offset) = '\0';
+
+	    if(simopt->paired==PAIRED_TYPE_PAIRED){
+		    fn[preflen+4] = '1';
+		    simopt->outfp[0] = fopen(fn,"w");
+		    if(NULL==simopt->outfp[0]){
+			    errx(EXIT_FAILURE,"Failed to open file %s for output",fn);
+		    }
+		    fn[preflen+4] = '2';
+		    simopt->outfp[1] = fopen(fn,"w");
+		    if(NULL==simopt->outfp[1]){
+			    errx(EXIT_FAILURE,"Failed to open file %s for output",fn);
+		    }
+	    } else {
+		    simopt->outfp[0] = fopen(fn,"w");
+		    if(NULL==simopt->outfp[0]){
+			    errx(EXIT_FAILURE,"Failed to open file %s for output",fn);
+		    }
+		    simopt->outfp[1] = simopt->outfp[0];
+	    }
+    }
+
+
+
     
     // Create sequence of ambiguities for filtered calls
     ambigseq = new_ARRAY(NUC)(model->ncycle);
