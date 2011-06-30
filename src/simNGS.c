@@ -634,74 +634,74 @@ static inline real_t prop_lower( const real_t p, const uint32_t n){
     return desc / (1.0 + z*z/n);
 }
 
-void output_likelihood_sub(const SIMOPT simopt, const uint32_t x, const uint32_t y, const CALLED called1, const CALLED called2){
+void output_likelihood_sub(FILE * fp, const SIMOPT simopt, const uint32_t x, const uint32_t y, const CALLED called1, const CALLED called2){
     const bool has_called2 = (called2!=NULL);
-    fprintf(stdout,"%u\t%u\t%u\t%u",simopt->lane,simopt->tile,x,y);
+    fprintf(fp,"%u\t%u\t%u\t%u",simopt->lane,simopt->tile,x,y);
     if(called1->pass_filter){
-        fprint_intensities(stdout,"",called1->loglike,false);
-        if(has_called2){fprint_intensities(stdout,"",called2->loglike,false);}
+        fprint_intensities(fp,"",called1->loglike,false);
+        if(has_called2){fprint_intensities(fp,"",called2->loglike,false);}
     }
-    fputc('\n',stdout);
+    fputc('\n',fp);
 }
 
 void output_likelihood(const SIMOPT simopt, const uint32_t x, const uint32_t y, const CALLED called1, const CALLED called2){
 	switch(simopt->paired){
 	case PAIRED_TYPE_SINGLE:
 	case PAIRED_TYPE_CYCLE:
-		output_likelihood_sub(simopt,x,y,called1,called2);
+		output_likelihood_sub(stdout,simopt,x,y,called1,called2);
 		break;
 	case PAIRED_TYPE_PAIRED:
-		output_likelihood_sub(simopt,x,y,called1,NULL);
-		output_likelihood_sub(simopt,x,y,called2,NULL);
+		output_likelihood_sub(stdout,simopt,x,y,called1,NULL);
+		output_likelihood_sub(stdout,simopt,x,y,called2,NULL);
 		break;
 	default:
 		errx(EXIT_FAILURE,"Unrecognised case %s (%s:%d)",__func__,__FILE__,__LINE__);
 	}	
 }
 
-void output_fasta_sub(const SIMOPT simopt, const char * seqname, const char * suffix, const CALLED called1, const CALLED called2){
+void output_fasta_sub(FILE * fp, const SIMOPT simopt, const char * seqname, const char * suffix, const CALLED called1, const CALLED called2){
     const bool has_called2 = (called2!=NULL);
-    fprintf(stdout,">%s%s\n",seqname,suffix);
+    fprintf(fp,">%s%s\n",seqname,suffix);
     if(called1->pass_filter){
-        show_ARRAY(NUC)(stdout,called1->calls,"",0);
-        if(has_called2){ show_ARRAY(NUC)(stdout,called2->calls,"",0);}
+        show_ARRAY(NUC)(fp,called1->calls,"",0);
+        if(has_called2){ show_ARRAY(NUC)(fp,called2->calls,"",0);}
     } else {
-        show_ARRAY(NUC)(stdout,ambigseq,"",0);
-        if(has_called2){ show_ARRAY(NUC)(stdout,ambigseq,"",0);}
+        show_ARRAY(NUC)(fp,ambigseq,"",0);
+        if(has_called2){ show_ARRAY(NUC)(fp,ambigseq,"",0);}
     }
-    fputc('\n',stdout);
+    fputc('\n',fp);
 }
 
-void output_fastq_sub(const SIMOPT simopt, const char * seqname, const char * suffix, const CALLED called1, const CALLED called2){
+void output_fastq_sub(FILE * fp, const SIMOPT simopt, const char * seqname, const char * suffix, const CALLED called1, const CALLED called2){
     const bool has_called2 = (called2!=NULL);
-    fprintf(stdout,"@%s%s\n",seqname,suffix);
+    fprintf(fp,"@%s%s\n",seqname,suffix);
     if(called1->pass_filter){
-        show_ARRAY(NUC)(stdout,called1->calls,"",0);
-        if(has_called2){ show_ARRAY(NUC)(stdout,called2->calls,"",0);}
+        show_ARRAY(NUC)(fp,called1->calls,"",0);
+        if(has_called2){ show_ARRAY(NUC)(fp,called2->calls,"",0);}
     } else {
-        show_ARRAY(NUC)(stdout,ambigseq,"",0);
-        if(has_called2){ show_ARRAY(NUC)(stdout,ambigseq,"",0);}
+        show_ARRAY(NUC)(fp,ambigseq,"",0);
+        if(has_called2){ show_ARRAY(NUC)(fp,ambigseq,"",0);}
     }
-    fputs("\n+\n",stdout);
+    fputs("\n+\n",fp);
     if(called1->pass_filter){
-        show_ARRAY(PHREDCHAR)(stdout,called1->quals,"",0);
-        if(has_called2){ show_ARRAY(PHREDCHAR)(stdout,called2->quals,"",0);}
+        show_ARRAY(PHREDCHAR)(fp,called1->quals,"",0);
+        if(has_called2){ show_ARRAY(PHREDCHAR)(fp,called2->quals,"",0);}
     } else {
-        show_ARRAY(PHREDCHAR)(stdout,ambigphred,"",0);
-        if(has_called2){ show_ARRAY(PHREDCHAR)(stdout,ambigphred,"",0);}
+        show_ARRAY(PHREDCHAR)(fp,ambigphred,"",0);
+        if(has_called2){ show_ARRAY(PHREDCHAR)(fp,ambigphred,"",0);}
     }
-    fputc('\n',stdout);
+    fputc('\n',fp);
 }
 
 void output_fasta(const SIMOPT simopt, const char * seqname, const CALLED called1, const CALLED called2){
         switch(simopt->paired){
         case PAIRED_TYPE_SINGLE:
         case PAIRED_TYPE_CYCLE:
-                output_fasta_sub(simopt,seqname,"",called1,called2);
+                output_fasta_sub(stdout,simopt,seqname,"",called1,called2);
                 break;
         case PAIRED_TYPE_PAIRED:
-                output_fasta_sub(simopt,seqname,"/1",called1,NULL);
-                output_fasta_sub(simopt,seqname,"/2",called2,NULL);
+                output_fasta_sub(stdout,simopt,seqname,"/1",called1,NULL);
+                output_fasta_sub(stdout,simopt,seqname,"/2",called2,NULL);
                 break;
         default:
                 errx(EXIT_FAILURE,"Unrecognised case %s (%s:%d)",__func__,__FILE__,__LINE__);
@@ -714,11 +714,11 @@ void output_fastq(const SIMOPT simopt, const char * seqname, const CALLED called
 	switch(simopt->paired){
 	case PAIRED_TYPE_SINGLE:
         case PAIRED_TYPE_CYCLE:
-		output_fastq_sub(simopt,seqname,"",called1,called2);
+		output_fastq_sub(stdout,simopt,seqname,"",called1,called2);
 		break;
 	case PAIRED_TYPE_PAIRED:
-		output_fastq_sub(simopt,seqname,"/1",called1,NULL);
-		output_fastq_sub(simopt,seqname,"/2",called2,NULL);
+		output_fastq_sub(stdout,simopt,seqname,"/1",called1,NULL);
+		output_fastq_sub(stdout,simopt,seqname,"/2",called2,NULL);
 		break;
 	default:
 		errx(EXIT_FAILURE,"Unrecognised case %s (%s:%d)",__func__,__FILE__,__LINE__);
