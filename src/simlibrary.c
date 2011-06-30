@@ -44,9 +44,9 @@ uint32_t nfragment_from_coverage(const uint32_t genlen, const real_t coverage, c
     return (uint32_t)(0.5+(genlen*coverage)/bases_per_read);
 }
 
-CSTRING fragname(const CSTRING name,const char strand, const uint32_t loc, const uint32_t fraglen){
+CSTRING fragname(const CSTRING name, const unsigned int idx, const char strand, const uint32_t loc, const uint32_t fraglen){
     char * str;
-    asprintf(&str,"%s (Strand %c Offset %u--%u)",name,strand,loc,loc+fraglen);
+    asprintf(&str,"Frag_%u %s (Strand %c Offset %u--%u)",idx,name,strand,loc,loc+fraglen);
     return str;
 }
 
@@ -394,7 +394,7 @@ int main ( int argc, char * argv[]){
                 char strand = (runif()<opt->strand_bias)?'+':'-';
 
                 SEQ sampseq = (strand=='+')?sub_SEQ(seq,loc,fraglen):sub_SEQ(rcseq,loc,fraglen);
-                CSTRING sampname = fragname(seq->name,strand,loc,fraglen);
+                CSTRING sampname = fragname(seq->name,i+1,strand,loc,fraglen);
                 free_CSTRING(sampseq->name);
                 sampseq->name = sampname;
                 show_SEQ(stdout,sampseq);
