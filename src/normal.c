@@ -76,7 +76,7 @@ real_t qstdnorm( real_t p, const bool tail, const bool logp){
 		real_t pmn = pstdnorm(x,tail,false);
 		real_t dmn = dstdnorm(x,false);
                 real_t delta = (ap-pmn)/dmn;
-		if(!finite(delta) || fabs(delta)>sd){ delta=(1-2*signbit(ap-pmn))*sd;}
+		if(!finite(delta) || fabs(delta)>sd){ delta=(1-2*(0!=signbit(ap-pmn)))*sd;}
 		if(isnan(pmn)||isnan(dmn)||isnan(delta)){ abort();}
                 x += delta;
                 if(fabs(delta)/(fabs(x)+3e-8) < tol){ break;}
@@ -215,16 +215,19 @@ const real_t chol_arry[] =
 
 
 int main(int argc, char * argv[] ){
-	if(argc!=3){
-		fputs("Usage: test n seed\n",stderr);
+	if(argc!=2){
+		fputs("Usage: test val\n",stderr);
 		return EXIT_FAILURE;
 	}
 
 	unsigned int n=0;
 	long unsigned int seed = 0;
-	sscanf(argv[1],"%u",&n);
-	sscanf(argv[2],"%lu",&seed);
-
+	real_t p;
+	//sscanf(argv[1],"%u",&n);
+	//sscanf(argv[2],"%lu",&seed);
+	sscanf(argv[1],real_format_str,&p);
+	fprintf(stdout,"qstdnorm(%f) = %f\n",p,qstdnorm(p,false,false));
+	exit(EXIT_SUCCESS);
 	init_gen_rand(seed);
 /*	fputs("# Standard normals\n",stdout);
 	for ( unsigned int i=0 ; i<n ; i++){

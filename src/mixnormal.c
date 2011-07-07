@@ -173,7 +173,7 @@ real_t qmixnorm(const real_t p, const NormMixParam param, bool tail, const bool 
 	const int it_max = 20;
 	const real_t tol= 3e-8;
 	if(NULL==param){ return NAN;}
-	if(p<0.0 || p>1.0){ errx(EXIT_FAILURE,"p=%f in %s",__func__);}
+	if(p<0.0 || p>1.0){ errx(EXIT_FAILURE,"p=%f in %s",p,__func__);}
 
 	if(p==0.0){ return -HUGE_VAL;}
 	if(p==1.0){ return HUGE_VAL;}
@@ -212,7 +212,7 @@ real_t qmixnorm(const real_t p, const NormMixParam param, bool tail, const bool 
 		real_t pmn = pmixnorm(x,param,tailf,false);
 		real_t dmn = sign*dmixnorm(x,param,false);
 		real_t delta = (ap-pmn)/dmn;
-		if(!finite(delta) || fabs(delta)>2*sd){ delta=2*sign*(1-2*signbit(ap-pmn))*sd;}
+		if(!finite(delta) || fabs(delta)>2*sd){ delta=2*sign*(1-2*(0!=signbit(ap-pmn)))*sd;}
 		if(isnan(pmn)||isnan(dmn)||isnan(delta)){ abort();}
 		x += delta;
 		if(fabs(delta)/(fabs(x)+3e-8) < tol){ break;}
