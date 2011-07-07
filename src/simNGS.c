@@ -1089,63 +1089,67 @@ int main( int argc, char * argv[] ){
         }
         while (NULL!=fp && (seq=sequence_from_fasta(fp))!=NULL){
             //show_SEQ(stderr,seq);
-            if(simopt->mutate){
-                SEQ mut = mutate_SEQ(seq,simopt->ins,simopt->del,simopt->mut);
-                free_SEQ(seq);
-                seq = mut;
-            }
-
-            SEQSTR seqstr = calloc(1,sizeof(*seqstr));
-            seqstr->name = copy_CSTRING(seq->name);
-            seqstr->seq = copy_ARRAY(NUC)(seq->seq);
-            seqstr->paired = model->paired;
-            free_SEQ(seq); seq=NULL;
-            // Pick copula
-            struct pair_double lambda = correlated_distribution(simopt->threshold,simopt->corr,model->dist1,model->dist2);
-            seqstr->lambda1 = lambda.x1;
-            seqstr->lambda2 = lambda.x2;
-
-            // Generate intensities
-            seqstr->int1 = generate_pure_intensities(simopt->sdfact,lambda.x1,seqstr->seq,simopt->adapter,model->ncycle,model->chol1_cycle,simopt->dustProb,simopt->invM,simopt->invP,simopt->N,NULL);
-            if ( model->paired ){
-                seqstr->rcseq = reverse_complement(seqstr->seq);
-                seqstr->int2 = generate_pure_intensities(simopt->sdfact,lambda.x2,seqstr->rcseq,simopt->adapter,model->ncycle,model->chol2_cycle,simopt->dustProb,simopt->invM,simopt->invP,simopt->N,NULL);
-            }
-            // Store in buffer
-            SEQSTR popped = push_circbuff_SEQSTR(circbuff,seqstr);
-            if( NULL!=popped ){
-                MAT intensities=NULL,intensities2=NULL;
-                CALLED called1=NULL, called2=NULL;
-
-                // Can only pop when buffer is full
-                if( simopt->jumble ){
-                    real_t prop = rkumaraswamy(simopt->a,simopt->b);
-                    uint32_t randelt = (uint32_t)(circbuff->maxelt*runif());
-                    assert(randelt>=0 && randelt<circbuff->maxelt);
-                    intensities  = mix_intensities(popped->int1,circbuff->elt[randelt]->int1,prop);
-                    intensities2 = mix_intensities(popped->int2,circbuff->elt[randelt]->int2,prop);
-                } else {
-                    intensities  = copy_MAT(popped->int1);
-                    intensities2 = copy_MAT(popped->int2);
+            if (seq->seq.nelt > 0 ){
+                if(simopt->mutate){
+                    SEQ mut = mutate_SEQ(seq,simopt->ins,simopt->del,simopt->mut);
+                    free_SEQ(seq);
+                    seq = mut;
                 }
-            
-                called1 = process_intensities(intensities,popped->lambda1,model->invchol1,simopt);
-                update_error_counts(called1->calls,popped->seq,error,errorhist);
-            
-                called2 = process_intensities(intensities2,popped->lambda2,model->invchol2,simopt);
-                update_error_counts(called2->calls,popped->rcseq,error2,errorhist2);
-            
-                if(called1->pass_filter){ unfiltered_count++;}
-                uint32_t x = (uint32_t)( 1794 * runif());
-                uint32_t y = (uint32_t)( 2048 * runif());
-                output_results(fpout,simopt,popped->name,x,y,called1,called2);
-            
-                free_CALLED(called1); called1=NULL; intensities=NULL;
-                free_CALLED(called2); called2=NULL; intensities2=NULL;
-                free_SEQSTR(popped);
 
-                seq_count++;
-                if( (seq_count%1000)==0 ){ fprintf(stderr,"\rDone: %8u",seq_count); }        
+                SEQSTR seqstr = calloc(1,sizeof(*seqstr));
+            	seqstr->name = copy_CSTRING(seq->name);
+            	seqstr->seq = copy_ARRAY(NUC)(seq->seq);
+            	seqstr->paired = model->paired;
+            	free_SEQ(seq); seq=NULL;
+            	// Pick copula
+            	struct pair_double lambda = correlated_distribution(simopt->threshold,simopt->corr,model->dist1,model->dist2);
+            	seqstr->lambda1 = lambda.x1;
+            	seqstr->lambda2 = lambda.x2;
+
+            	// Generate intensities
+            	seqstr->int1 = generate_pure_intensities(simopt->sdfact,lambda.x1,seqstr->seq,simopt->adapter,model->ncycle,model->chol1_cycle,simopt->dustProb,simopt->invM,simopt->invP,simopt->N,NULL);
+            	if ( model->paired ){
+            	    seqstr->rcseq = reverse_complement(seqstr->seq);
+                    seqstr->int2 = generate_pure_intensities(simopt->sdfact,lambda.x2,seqstr->rcseq,simopt->adapter,model->ncycle,model->chol2_cycle,simopt->dustProb,simopt->invM,simopt->invP,simopt->N,NULL);
+            	}
+            	// Store in buffer
+            	SEQSTR popped = push_circbuff_SEQSTR(circbuff,seqstr);
+            	if( NULL!=popped ){
+                    MAT intensities=NULL,intensities2=NULL;
+                    CALLED called1=NULL, called2=NULL;
+
+                    // Can only pop when buffer is full
+                    if( simopt->jumble ){
+                        real_t prop = rkumaraswamy(simopt->a,simopt->b);
+                    	uint32_t randelt = (uint32_t)(circbuff->maxelt*runif());
+                    	assert(randelt>=0 && randelt<circbuff->maxelt);
+                    	intensities  = mix_intensities(popped->int1,circbuff->elt[randelt]->int1,prop);
+                    	intensities2 = mix_intensities(popped->int2,circbuff->elt[randelt]->int2,prop);
+                    } else {
+                        intensities  = copy_MAT(popped->int1);
+                    	intensities2 = copy_MAT(popped->int2);
+                    }
+            
+                    called1 = process_intensities(intensities,popped->lambda1,model->invchol1,simopt);
+                    update_error_counts(called1->calls,popped->seq,error,errorhist);
+            
+                    called2 = process_intensities(intensities2,popped->lambda2,model->invchol2,simopt);
+                    update_error_counts(called2->calls,popped->rcseq,error2,errorhist2);
+            
+                    if(called1->pass_filter){ unfiltered_count++;}
+                    uint32_t x = (uint32_t)( 1794 * runif());
+                    uint32_t y = (uint32_t)( 2048 * runif());
+                    output_results(fpout,simopt,popped->name,x,y,called1,called2);
+            
+                    free_CALLED(called1); called1=NULL; intensities=NULL;
+                    free_CALLED(called2); called2=NULL; intensities2=NULL;
+                    free_SEQSTR(popped);
+
+                    seq_count++;
+                    if( (seq_count%1000)==0 ){ fprintf(stderr,"\rDone: %8u",seq_count); }
+		}
+            } else {
+                warnx("Skipping empty sequence \"%s\"",seq->name);
             }
         }
         fclose(fp);
