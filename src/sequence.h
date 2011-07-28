@@ -28,8 +28,27 @@
 #include "nuc.h"
 #include "utility.h"
 
+typedef struct _cigelt {
+	char type;
+	int num;
+	struct _cigelt * nxt;
+} * CIGELT;
+
+typedef struct _ciglist {
+	CIGELT start, end;
+} CIGLIST;
+
+static CIGLIST null_CIGLIST = {NULL,NULL};
+
+void show_CIGLIST(FILE * fp, const CIGLIST cigar);
+CIGLIST copy_CIGLIST(const CIGLIST cigar);
+void free_CIGLIST(CIGLIST cigar);
+CIGLIST sub_cigar(const CIGLIST cigar, const int len);
+CIGLIST reverse_cigar(const CIGLIST cigar);
+
 
 struct _sequence {
+   CIGLIST cigar;
    char * name, *qname;
    ARRAY(NUC) seq;
    ARRAY(PHREDCHAR) qual;

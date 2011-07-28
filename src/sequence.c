@@ -32,6 +32,120 @@
 #include "mystring.h"
 #include "random.h"
 
+void free_CIGLIST(CIGLIST cigar){
+        CIGELT elt = cigar.start;
+        while(NULL!=elt){
+                CIGELT nxtelt = elt->nxt;
+                free(elt);
+                elt = nxtelt;
+        }
+}
+
+// Drops deletions from beginning of cigar string
+CIGLIST compact_CIGLIST(CIGLIST cigar){
+	CIGELT elt = cigar.start;
+	if(NULL==elt){ return cigar; }
+
+	if('D'==elt->type){
+		CIGELT nxtelt = elt->nxt;
+		free(elt);
+		if(cigar.start==cigar.end){
+			cigar.end = nxtelt;
+		}
+		cigar.start = nxtelt;
+	}
+	return cigar;
+}
+
+CIGLIST pushStart_CIGLIST(CIGLIST cigar, const char type, const int num){
+	CIGELT elt = malloc(sizeof(*elt));
+	if(NULL==elt){ 
+		free_CIGLIST(cigar);
+		return null_CIGLIST;
+	}
+
+	elt->nxt = cigar.start;
+	elt->type = type;
+	elt->num = num;
+
+	cigar.start = elt;
+	if(NULL==cigar.end){ cigar.end = elt; }
+	return cigar;
+}
+
+CIGLIST pushEnd_CIGLIST(CIGLIST cigar, const char type, const int num){
+        CIGELT elt = malloc(sizeof(*elt));
+        if(NULL==elt){ 
+		free_CIGLIST(cigar);
+		return null_CIGLIST;
+	}
+
+        elt->nxt = NULL;
+        elt->type = type;
+        elt->num = num;
+
+	if(NULL==cigar.end){
+		cigar.start = elt;
+		cigar.end = elt;
+	} else {
+		cigar.end->nxt = elt;
+		cigar.end = elt;
+	}
+	return cigar;
+}
+
+void show_CIGLIST(FILE * fp, const CIGLIST cigar){
+	if(NULL==fp){ return; }
+	CIGELT elt = cigar.start;
+        while(NULL!=elt){
+		fprintf(fp,"%d%c",elt->num,elt->type);
+		elt = elt->nxt;
+	}
+}
+
+CIGLIST copy_CIGLIST(const CIGLIST cigar){
+	CIGLIST newcigar = {NULL,NULL};
+	CIGELT elt = cigar.start;
+
+	while(NULL!=elt){
+		newcigar = pushEnd_CIGLIST(newcigar,elt->type,elt->num);
+		elt = elt->nxt;
+	}
+	return newcigar;
+}
+
+CIGLIST reverse_cigar(const CIGLIST cigar){
+	CIGLIST newcig = {NULL,NULL};
+	CIGELT elt = cigar.start;
+	while(NULL!=elt){
+		newcig = pushStart_CIGLIST(newcig,elt->type,elt->num);
+		elt = elt->nxt;
+	}
+	return newcig;
+}
+
+CIGLIST sub_cigar(const CIGLIST cigar, const int len){
+	CIGLIST newcig = {NULL,NULL};
+	CIGELT elt = cigar.start;
+	int tot=0;
+	while(NULL!=elt && tot<len){
+		newcig = pushEnd_CIGLIST(newcig,elt->type,elt->num);
+		if('D'!=elt->type){tot += elt->num;}
+		elt = elt->nxt;
+	}
+
+	if(tot<len){
+		// Invalid shortening, pad with N's
+		newcig = pushEnd_CIGLIST(newcig,'N',len-tot);
+	} else {
+		if(NULL!=newcig.end){newcig.end->num -= (tot-len);}
+	}
+
+	return newcig;
+}
+
+
+
 bool hasQual( const SEQ seq){
     validate(NULL!=seq,false);
     return (NULL!=seq->qual.elt)?true:false;
@@ -44,6 +158,7 @@ void free_SEQ ( SEQ seq ){
    if ( NULL!=seq->qname){ safe_free(seq->qname);}
    if ( NULL!=seq->seq.elt  ){ free_ARRAY(NUC)(seq->seq); }
    if ( NULL!=seq->qual.elt ){ free_ARRAY(PHREDCHAR)(seq->qual); }
+   free_CIGLIST(seq->cigar);
    safe_free(seq);
 }
 
@@ -53,6 +168,7 @@ SEQ new_SEQ (const uint32_t len, const bool has_qual){
    if(NULL==seq){return NULL;}
    seq->name = NULL;
    seq->qname = NULL;
+   seq->cigar = null_CIGLIST;
    seq->seq = new_ARRAY(NUC)(len);
    if(NULL==seq->seq.elt){ goto cleanup; }
    if(has_qual){
@@ -75,6 +191,9 @@ SEQ resize_SEQ( SEQ seq, const uint32_t newlen){
     for ( uint32_t i=seq->length ; i<newlen ; i++){
         seq->seq.elt[i] = NUC_AMBIG;
     }
+    CIGLIST newcig = sub_cigar(seq->cigar,newlen);
+    free_CIGLIST(seq->cigar);
+    seq->cigar = newcig;
     if(hasQual(seq)){
         seq->qual = resize_ARRAY(PHREDCHAR)(seq->qual,newlen);
         if(0==seq->qual.nelt){ free_SEQ(seq); return NULL;}
@@ -102,6 +221,8 @@ SEQ sequence_from_str ( const char * restrict name, const char * restrict seqstr
       if(NULL==seq->qname){ free_SEQ(seq); return NULL;}
       strcpy(seq->qname,qname);
    }
+   free_CIGLIST(seq->cigar);
+   seq->cigar = pushStart_CIGLIST(seq->cigar,'M',length);
 
    for ( uint32_t i=0 ; i<length ; i++){
       seq->seq.elt[i] = nuc_from_char(seqstr[i]);
@@ -126,6 +247,9 @@ SEQ copy_SEQ ( const SEQ seq){
    if(hasQual(seq)){
        memcpy(newseq->qual.elt,seq->qual.elt,seq->length*sizeof(PHREDCHAR));
    }
+   // cigar
+   free_CIGLIST(newseq->cigar);
+   newseq->cigar = copy_CIGLIST(seq->cigar);
    
    newseq->length = seq->length;
    if(NULL!=seq->name){
@@ -152,7 +276,8 @@ void show_SEQ( FILE * fp, const SEQ seq){
    validate(NULL!=seq,);
 
    (!hasQual(seq)) ? fputc('>',fp) : fputc('@',fp);
-   if(NULL!=seq->name){ fputs(seq->name,fp); }
+   if(NULL!=seq->name){ fputs(seq->name,fp); fputc(' ',fp);}
+   show_CIGLIST(fp,seq->cigar);
    fputc('\n',fp);
    for ( uint32_t i=0 ; i<seq->length ; i++){
        show_NUC(fp,seq->seq.elt[i]);
@@ -284,6 +409,9 @@ SEQ reverse_complement_SEQ( const SEQ seq){
         free_ARRAY(PHREDCHAR)(newseq->qual);
         newseq->qual = revqual;
     }
+
+    free_CIGLIST(newseq->cigar);
+    newseq->cigar = reverse_cigar(seq->cigar);
     
     return newseq;
     
@@ -304,6 +432,8 @@ SEQ mutate_SEQ ( const SEQ seq, const real_t ins, const real_t del, const real_t
     
     SEQ mutseq = copy_SEQ(seq);
     uint32_t scount=0, mcount=0;
+    char cigType = 0; int cigNum = 0;
+    CIGLIST cigar = null_CIGLIST;
     while(scount<seq->length){
         if(mcount==mutseq->length){ // Enlarge mutated sequence
             resize_SEQ(mutseq,mutseq->length*2);
@@ -311,17 +441,41 @@ SEQ mutate_SEQ ( const SEQ seq, const real_t ins, const real_t del, const real_t
         uint32_t i = rchoose(probs,4);
         switch(i){
            case 0: // Insertion of base
+	       if('I'==cigType){ cigNum++;}
+	       else {
+		       if(0!=cigType){cigar = pushEnd_CIGLIST(cigar,cigType,cigNum);}
+		       cigType = 'I';
+		       cigNum = 1;
+	       }
                mutseq->seq.elt[mcount] = random_NUC();
                mcount++;
                break;
            case 1: // Deletion
+	       if('D'==cigType){ cigNum++;}
+	       else {
+		      if(0!=cigType){cigar = pushEnd_CIGLIST(cigar,cigType,cigNum);}
+		      cigType = 'D';
+		      cigNum = 1;
+	       } 
                scount++;
                break;
            case 2: // Mutation
+	       if('S'==cigType){ cigNum++;}
+	       else {
+                      if(0!=cigType){cigar = pushEnd_CIGLIST(cigar,cigType,cigNum);}
+                      cigType = 'S';
+                      cigNum = 1;
+               }
                mutseq->seq.elt[mcount] = random_other_NUC(seq->seq.elt[scount]);
                mcount++; scount++;
                break;
            case 3: // Match
+	       if('M'==cigType){ cigNum++;}
+	       else {
+                      if(0!=cigType){cigar = pushEnd_CIGLIST(cigar,cigType,cigNum);}
+                      cigType = 'M';
+                      cigNum = 1;
+               }
                mutseq->seq.elt[mcount] = seq->seq.elt[scount];
                mcount++; scount++;
                break;
@@ -329,7 +483,12 @@ SEQ mutate_SEQ ( const SEQ seq, const real_t ins, const real_t del, const real_t
                errx(EXIT_FAILURE,"Invalid case '%d' generated in %s (%s:%u)",i,__func__,__FILE__,__LINE__);
         }
     }
+    // Push any remaining edits into cigar string, except deletions.
+    if(0!=cigType && 'D'!=cigType){cigar = pushEnd_CIGLIST(cigar,cigType,cigNum);}
+    cigar = compact_CIGLIST(cigar);
     mutseq = resize_SEQ(mutseq,mcount);
+    free_CIGLIST(mutseq->cigar);
+    mutseq->cigar = cigar;
     return mutseq;
 }
 
@@ -349,7 +508,6 @@ SEQ sub_SEQ( const SEQ seq, const uint32_t loc, const uint32_t len){
     for( uint32_t i=seqend ; i<len ; i++){
         subseq->seq.elt[i] = NUC_AMBIG;
     }
-
     // Qualities
     if(hasQual(seq)){
         for ( uint32_t i=0 ; i<seqend ; i++){
@@ -359,6 +517,9 @@ SEQ sub_SEQ( const SEQ seq, const uint32_t loc, const uint32_t len){
             subseq->qual.elt[i] = MIN_PHRED;
         }
     }
+    // Cigar string
+    free_CIGLIST(subseq->cigar);
+    subseq->cigar = sub_cigar(seq->cigar,len);
 
     return subseq;
 }
@@ -366,13 +527,17 @@ SEQ sub_SEQ( const SEQ seq, const uint32_t loc, const uint32_t len){
 #ifdef TEST
 int main(int argc, char * argv[]){
     FILE * fp = (argc==1)?stdin:fopen(argv[1],"r");
+    init_gen_rand(12351);
     
     SEQ seq=NULL;
     while( NULL!=(seq=sequence_from_file(fp)) ){
         show_SEQ(stdout,seq);
-        SEQ rcseq = reverse_complement_SEQ(seq);
+	SEQ mutseq = mutate_SEQ(seq,0.02,0.02,0.02);
+	show_SEQ(stdout,mutseq);
+        SEQ rcseq = reverse_complement_SEQ(mutseq);
         show_SEQ(stdout,rcseq);
         free_SEQ(rcseq);
+	free_SEQ(mutseq);
         free_SEQ(seq);
     }
     return EXIT_SUCCESS;

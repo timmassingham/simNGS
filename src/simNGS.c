@@ -67,6 +67,7 @@ typedef struct{
     real_t lambda1, lambda2;
     ARRAY(NUC) seq, rcseq;
     MAT int1,int2;
+    CIGLIST cigar1,cigar2;
 } * SEQSTR;
 
 MAT reverse_complement_MAT(const MAT mat);
@@ -80,6 +81,8 @@ void free_SEQSTR( SEQSTR seqstr){
     free_CSTRING(seqstr->name);
     free_ARRAY(NUC)(seqstr->seq);
     free_ARRAY(NUC)(seqstr->rcseq);
+    free_CIGLIST(seqstr->cigar1);
+    free_CIGLIST(seqstr->cigar2);
     free(seqstr);
 }
 
@@ -672,9 +675,11 @@ void output_likelihood(const SIMOPT simopt, const uint32_t x, const uint32_t y, 
 	}	
 }
 
-void output_fasta_sub(FILE * fp, const SIMOPT simopt, const char * seqname, const char * suffix, const CALLED called1, const CALLED called2){
+void output_fasta_sub(FILE * fp, const SIMOPT simopt, const char * seqname, const CIGLIST cigar, const char * suffix, const CALLED called1, const CALLED called2){
     const bool has_called2 = (called2!=NULL);
-    fprintf(fp,">%s%s\n",seqname,suffix);
+    fprintf(fp,">%s%s ",seqname,suffix);
+    show_CIGLIST(fp,cigar);
+    fputc('\n',fp);
     if(called1->pass_filter){
         show_ARRAY(NUC)(fp,called1->calls,"",0);
         if(has_called2){ show_ARRAY(NUC)(fp,called2->calls,"",0);}
@@ -685,9 +690,11 @@ void output_fasta_sub(FILE * fp, const SIMOPT simopt, const char * seqname, cons
     fputc('\n',fp);
 }
 
-void output_fastq_sub(FILE * fp, const SIMOPT simopt, const char * seqname, const char * suffix, const CALLED called1, const CALLED called2){
+void output_fastq_sub(FILE * fp, const SIMOPT simopt, const char * seqname, const CIGLIST cigar, const char * suffix, const CALLED called1, const CALLED called2){
     const bool has_called2 = (called2!=NULL);
-    fprintf(fp,"@%s%s\n",seqname,suffix);
+    fprintf(fp,"@%s%s ",seqname,suffix);
+    show_CIGLIST(fp,cigar);
+    fputc('\n',fp);
     if(called1->pass_filter){
         show_ARRAY(NUC)(fp,called1->calls,"",0);
         if(has_called2){ show_ARRAY(NUC)(fp,called2->calls,"",0);}
@@ -706,16 +713,16 @@ void output_fastq_sub(FILE * fp, const SIMOPT simopt, const char * seqname, cons
     fputc('\n',fp);
 }
 
-void output_fasta(const SIMOPT simopt, const char * seqname, const CALLED called1, const CALLED called2){
+void output_fasta(const SIMOPT simopt, const char * seqname, const CIGLIST cigar1, const CIGLIST cigar2, const CALLED called1, const CALLED called2){
 	const bool use_suff = (simopt->outfp[0]==simopt->outfp[1]);
         switch(simopt->paired){
         case PAIRED_TYPE_SINGLE:
         case PAIRED_TYPE_CYCLE:
-                output_fasta_sub(simopt->outfp[0],simopt,seqname,"",called1,called2);
+                output_fasta_sub(simopt->outfp[0],simopt,seqname,cigar1,"",called1,called2);
                 break;
         case PAIRED_TYPE_PAIRED:
-                output_fasta_sub(simopt->outfp[0],simopt,seqname,use_suff?"/1":"",called1,NULL);
-                output_fasta_sub(simopt->outfp[1],simopt,seqname,use_suff?"/2":"",called2,NULL);
+                output_fasta_sub(simopt->outfp[0],simopt,seqname,cigar1,use_suff?"/1":"",called1,NULL);
+                output_fasta_sub(simopt->outfp[1],simopt,seqname,cigar2,use_suff?"/2":"",called2,NULL);
                 break;
         default:
                 errx(EXIT_FAILURE,"Unrecognised case %s (%s:%d)",__func__,__FILE__,__LINE__);
@@ -724,23 +731,23 @@ void output_fasta(const SIMOPT simopt, const char * seqname, const CALLED called
 
 
 
-void output_fastq(const SIMOPT simopt, const char * seqname, const CALLED called1, const CALLED called2){
+void output_fastq(const SIMOPT simopt, const char * seqname, const CIGLIST cigar1, const CIGLIST cigar2, const CALLED called1, const CALLED called2){
 	const bool use_suff = (simopt->outfp[0]==simopt->outfp[1]);
 	switch(simopt->paired){
 	case PAIRED_TYPE_SINGLE:
         case PAIRED_TYPE_CYCLE:
-		output_fastq_sub(simopt->outfp[0],simopt,seqname,"",called1,called2);
+		output_fastq_sub(simopt->outfp[0],simopt,seqname,cigar1,"",called1,called2);
 		break;
 	case PAIRED_TYPE_PAIRED:
-		output_fastq_sub(simopt->outfp[0],simopt,seqname,use_suff?"/1":"",called1,NULL);
-		output_fastq_sub(simopt->outfp[1],simopt,seqname,use_suff?"/2":"",called2,NULL);
+		output_fastq_sub(simopt->outfp[0],simopt,seqname,cigar1,use_suff?"/1":"",called1,NULL);
+		output_fastq_sub(simopt->outfp[1],simopt,seqname,cigar2,use_suff?"/2":"",called2,NULL);
 		break;
 	default:
 		errx(EXIT_FAILURE,"Unrecognised case %s (%s:%d)",__func__,__FILE__,__LINE__);
 	}
 }
 
-void output_results(FILE * intout, const SIMOPT simopt, const char * seqname, const uint32_t x, const uint32_t y, const CALLED called1, const CALLED called2){
+void output_results(FILE * intout, const SIMOPT simopt, const char * seqname, const CIGLIST cigar1, const CIGLIST cigar2, const uint32_t x, const uint32_t y, const CALLED called1, const CALLED called2){
     // Output raw intensities if required
     if(NULL!=intout){
         fprintf(intout,"%u\t%u\t%u\t%u",simopt->lane,simopt->tile,x,y);
@@ -755,10 +762,10 @@ void output_results(FILE * intout, const SIMOPT simopt, const char * seqname, co
            output_likelihood(simopt,x,y,called1,called2);
            break;
        case OUTPUT_FASTA:
-           output_fasta(simopt,seqname,called1,called2);
+           output_fasta(simopt,seqname,cigar1,cigar2,called1,called2);
            break;
        case OUTPUT_FASTQ:
-           output_fastq(simopt,seqname,called1,called2);
+           output_fastq(simopt,seqname,cigar1,cigar2,called1,called2);
            break;
        default:
            errx(EXIT_FAILURE,"Unrecognised format in %s (%s:%d)",__func__,__FILE__,__LINE__);
@@ -1100,7 +1107,8 @@ int main( int argc, char * argv[] ){
             	seqstr->name = copy_CSTRING(seq->name);
             	seqstr->seq = copy_ARRAY(NUC)(seq->seq);
             	seqstr->paired = model->paired;
-            	free_SEQ(seq); seq=NULL;
+		seqstr->cigar1 = sub_cigar(seq->cigar,model->ncycle);
+		seqstr->cigar2 = null_CIGLIST;
             	// Pick copula
             	struct pair_double lambda = correlated_distribution(simopt->threshold,simopt->corr,model->dist1,model->dist2);
             	seqstr->lambda1 = lambda.x1;
@@ -1110,8 +1118,12 @@ int main( int argc, char * argv[] ){
             	seqstr->int1 = generate_pure_intensities(simopt->sdfact,lambda.x1,seqstr->seq,simopt->adapter,model->ncycle,model->chol1_cycle,simopt->dustProb,simopt->invM,simopt->invP,simopt->N,NULL);
             	if ( model->paired ){
             	    seqstr->rcseq = reverse_complement(seqstr->seq);
+		    CIGLIST revcig = reverse_cigar(seq->cigar);
+                    seqstr->cigar2 = sub_cigar(revcig,model->ncycle);
+		    free_CIGLIST(revcig);
                     seqstr->int2 = generate_pure_intensities(simopt->sdfact,lambda.x2,seqstr->rcseq,simopt->adapter,model->ncycle,model->chol2_cycle,simopt->dustProb,simopt->invM,simopt->invP,simopt->N,NULL);
             	}
+		free_SEQ(seq); seq=NULL;
             	// Store in buffer
             	SEQSTR popped = push_circbuff_SEQSTR(circbuff,seqstr);
             	if( NULL!=popped ){
@@ -1139,7 +1151,7 @@ int main( int argc, char * argv[] ){
                     if(called1->pass_filter){ unfiltered_count++;}
                     uint32_t x = (uint32_t)( 1794 * runif());
                     uint32_t y = (uint32_t)( 2048 * runif());
-                    output_results(fpout,simopt,popped->name,x,y,called1,called2);
+                    output_results(fpout,simopt,popped->name,popped->cigar1,popped->cigar2,x,y,called1,called2);
             
                     free_CALLED(called1); called1=NULL; intensities=NULL;
                     free_CALLED(called2); called2=NULL; intensities2=NULL;
@@ -1188,7 +1200,7 @@ int main( int argc, char * argv[] ){
             if(called1->pass_filter){ unfiltered_count++;}
             uint32_t x = (uint32_t)( 1794 * runif());
             uint32_t y = (uint32_t)( 2048 * runif());
-            output_results(fpout,simopt,popped->name,x,y,called1,called2);
+            output_results(fpout,simopt,popped->name,popped->cigar1,popped->cigar2,x,y,called1,called2);
 
             free_CALLED(called1); called1=NULL; intensities=NULL;
             free_CALLED(called2); called2=NULL; intensities2=NULL;
