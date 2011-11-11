@@ -38,9 +38,10 @@ typedef struct _ciglist {
 	CIGELT start, end;
 } CIGLIST;
 
-static CIGLIST null_CIGLIST = {NULL,NULL};
+static CIGLIST null_CIGLIST __attribute__((unused)) = {NULL,NULL};
 
 void show_CIGLIST(FILE * fp, const CIGLIST cigar);
+char * string_CIGLIST(const CIGLIST cigar);
 CIGLIST copy_CIGLIST(const CIGLIST cigar);
 void free_CIGLIST(CIGLIST cigar);
 CIGLIST sub_cigar(const CIGLIST cigar, const int len);
@@ -69,7 +70,7 @@ SEQ sequence_from_fasta ( FILE * fp);
 SEQ sequence_from_fastq ( FILE * fp);
 
 //
-SEQ reverse_complement_SEQ( const SEQ seq);
+SEQ reverse_complement_SEQ( const SEQ seq, const bool revcigar);
 SEQ mutate_SEQ( const SEQ seq, const real_t ins, const real_t del, const real_t mut );
 SEQ sub_SEQ( const SEQ seq, const uint32_t loc, const uint32_t len);
 #endif

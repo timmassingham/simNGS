@@ -94,6 +94,31 @@ CIGLIST pushEnd_CIGLIST(CIGLIST cigar, const char type, const int num){
 	return cigar;
 }
 
+int strlen_CIGLIST(const CIGLIST cigar){
+	int elts = 0;
+	CIGELT elt = cigar.start;
+	while(NULL!=elt){
+		elts += ndigits(elt->num) + 1;
+		elt = elt->nxt;
+	}
+	return elts;
+}
+
+char * string_CIGLIST(const CIGLIST cigar){
+	char * str;
+	int nelt = strlen_CIGLIST(cigar);
+	str = calloc(nelt+1,sizeof(char));
+
+	CIGELT elt = cigar.start;
+	char * strp = str;
+	while(NULL!=elt){
+		sprintf(strp,"%d%c",elt->num,elt->type);
+		strp += ndigits(elt->num) + 1;
+		elt = elt->nxt;
+	}
+	return str;
+}
+
 void show_CIGLIST(FILE * fp, const CIGLIST cigar){
 	if(NULL==fp){ return; }
 	CIGELT elt = cigar.start;
@@ -102,6 +127,7 @@ void show_CIGLIST(FILE * fp, const CIGLIST cigar){
 		elt = elt->nxt;
 	}
 }
+
 
 CIGLIST copy_CIGLIST(const CIGLIST cigar){
 	CIGLIST newcigar = {NULL,NULL};
@@ -389,7 +415,7 @@ SEQ sequence_from_file ( FILE * fp){
    return NULL;
 }
 
-SEQ reverse_complement_SEQ( const SEQ seq){
+SEQ reverse_complement_SEQ( const SEQ seq, const bool revcigar){
     ARRAY(NUC) rcnuc = null_ARRAY(NUC);
     ARRAY(PHREDCHAR) revqual = null_ARRAY(PHREDCHAR);
     SEQ newseq = NULL;
@@ -410,8 +436,10 @@ SEQ reverse_complement_SEQ( const SEQ seq){
         newseq->qual = revqual;
     }
 
-    free_CIGLIST(newseq->cigar);
-    newseq->cigar = reverse_cigar(seq->cigar);
+    if(revcigar){
+    	free_CIGLIST(newseq->cigar);
+    	newseq->cigar = reverse_cigar(seq->cigar);
+    }
     
     return newseq;
     
