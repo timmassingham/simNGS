@@ -46,7 +46,7 @@ uint32_t nfragment_from_coverage(const uint32_t genlen, const real_t coverage, c
 
 CSTRING fragname(const CSTRING name, const unsigned int idx, const char strand, const uint32_t loc, const uint32_t fraglen){
     char * str;
-    asprintf(&str,"Frag_%u %s (Strand %c Offset %u--%u)",idx,name,strand,loc,loc+fraglen);
+    asprintf(&str,"Frag_%u %s (Strand %c Offset %u--%u)",idx,name,strand,loc+1,loc+fraglen);
     return str;
 }
 
@@ -122,6 +122,13 @@ void fprint_help( FILE * fp){
 "input sequences and a multipliers file is not given, or contains\n"
 "insufficient multipliers, then a default multiplier of one is used.\n"
 "\n"
+"--mutate, --mutate=insertion:deletion:mutation [default: 1e-5:1e-6:1e-4]\n"
+"\tSimple model of sequence mutation to reflect sample preparation errors.\n"
+"When the --mutate option is given without an argument, the mutational\n"
+"process is turned off otherwise the default parameters are used.\n"
+"An alternative process of mutation may be specified using the format:\n"
+"\t--mutate=1e-5:1e-6:1e-4\n"
+"\n"
 "-n, --nfragments nfragments [default: from coverage]\n"
 "\tNumber of fragments to produce for library. By default the number of\n"
 "fragments is sufficient for the coverage given. If the number of fragments\n"
@@ -161,6 +168,7 @@ static struct option longopts[] = {
     { "cov",        required_argument, NULL, 'c'},
     { "gel_cut",    required_argument, NULL, 'g'},
     { "insert",     required_argument, NULL, 'i'},
+    { "mutate",	    optional_argument, NULL, 3},
     { "multipliers",required_argument, NULL, 'm'},
     { "nfragments", required_argument, NULL, 'n'},
     { "paired",     no_argument,       NULL, 'p'},
@@ -183,6 +191,8 @@ typedef struct {
     enum strand_opt strand;
     FILE * multiplier_fp;
     real_t cut_lower, cut_upper;
+    bool mutate;
+    real_t ins,del,mut;
 } * OPT;
 
 OPT new_OPT(void){
@@ -200,6 +210,8 @@ OPT new_OPT(void){
     opt->strand = STRAND_RANDOM;
     opt->multiplier_fp = NULL;
     opt->cut_lower = 0; opt->cut_upper = HUGE_VAL;
+    opt->mutate = true;
+    opt->ins=1e-5; opt->del=1e-6; opt->mut=1e-4;
     return opt;
 }
 
@@ -268,6 +280,23 @@ OPT parse_options(const int argc, char * const argv[] ){
                 warnx("Failed to open multiplier file \"%s\". Using multiplier of one.",optarg);
             }
             break;
+	case 3: // Mutation parameters
+	    if(NULL==optarg){ // No optional argument
+                opt->mutate = false;
+                opt->ins = opt->del = opt->mut = 0.0;
+            } // Optional argument present
+            else {
+               ret = sscanf(optarg, real_format_str ":" real_format_str ":" real_format_str,&opt->ins,&opt->del,&opt->mut);
+               if( ret!=3 ){ errx(EXIT_FAILURE,"Insufficient arguments for mutation.");}
+               if(!isprob(opt->ins) || !isprob(opt->del) || !isprob(opt->mut) ){
+                   errx(EXIT_FAILURE,"Mutation parameters not probabilities. Given: ins %f, del %f, mut %f",opt->ins,opt->del,opt->mut);
+               }
+               if(opt->ins+opt->del+opt->mut>1.0){
+                   errx(EXIT_FAILURE,"Mutation parameters sum to greater than one.");
+               }
+               opt->mutate = true;
+            }
+            break;
         case 'n':
             opt->nfragment = parse_uint(optarg);
             break;
@@ -282,7 +311,7 @@ OPT parse_options(const int argc, char * const argv[] ){
             if(!strncasecmp(optarg,"opposite",8)){ opt->strand = STRAND_OPPOSITE; break;}
             if(!strncasecmp(optarg,"random",6)){ opt->strand = STRAND_RANDOM; break;}
             errx(EXIT_FAILURE,"Unrecognised choice of strand \"%s\"",optarg); break;
-        case 2:
+        case 2: // Change seed
             opt->seed = parse_uint(optarg);
             break;
         case 'v':
@@ -362,7 +391,6 @@ int main ( int argc, char * argv[]){
             }
         }
         while (NULL!=fp && (seq=sequence_from_fasta(fp))!=NULL){
-            SEQ rcseq = reverse_complement_SEQ(seq);
             // Read multiplier from file, if available
             double multiplier = 1.;
             if(NULL!=opt->multiplier_fp){
@@ -393,15 +421,20 @@ int main ( int argc, char * argv[]){
                 const uint32_t loc = (uint32_t)((seq->length-fraglen)*runif()); // Location is uniform
                 char strand = (runif()<opt->strand_bias)?'+':'-';
 
-                SEQ sampseq = (strand=='+')?sub_SEQ(seq,loc,fraglen):sub_SEQ(rcseq,loc,fraglen);
+                SEQ fragseq = sub_SEQ(seq,loc,fraglen);
+		SEQ mutseq = mutate_SEQ(fragseq,opt->ins,opt->del,opt->mut);
+		free_SEQ(fragseq);
+		SEQ sampseq = (strand=='+')? copy_SEQ(mutseq) : reverse_complement_SEQ(mutseq,false);
+		free_SEQ(mutseq);
+                
                 CSTRING sampname = fragname(seq->name,i+1,strand,loc,fraglen);
+
                 free_CSTRING(sampseq->name);
                 sampseq->name = sampname;
                 show_SEQ(stdout,sampseq);
                 free_SEQ(sampseq);
                 if( (tot_fragments%100000)==99999 ){ fprintf(stderr,"\rDone: %8u",tot_fragments+1); }
             }
-            free_SEQ(rcseq);
             free_SEQ(seq);
         }
         fclose(fp);

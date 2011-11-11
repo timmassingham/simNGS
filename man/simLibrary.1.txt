@@ -9,8 +9,9 @@ simLibrary - split sequences into a simulated library of fragments
 SYNOPSIS
 --------
 *simLibrary* 	[-b bias] [-c cov] [-g lower:upper] [-i insertlen]
-	        [-m multiplier_file] [-n nfragments] -p [-r readlen] [-s strand]
-	        [-v variance] [-x coverage] [--seed seed] seq1.fa ...
+	        [--mutate [insertion:deletion:mutation]] [-m multiplier_file] 
+		[-n nfragments] -p [-r readlen] [-s strand] [-v variance] 
+		[-x coverage] [--seed seed] seq1.fa ...
 
 
 *simLibrary* --help
@@ -52,6 +53,19 @@ fragments produced for each sequence is controlled by the --coverage
 and --nfragments but scaled by the multiplier. If there are multiple
 input sequences and a multipliers file is not given, or contains
 insufficient multipliers, then a default multiplier of one is used.
+
+*--mutate, --mutate*=insertion:deletion:mutation [default: 1e-5:1e-6:1e-4]::
+        Simple model of sequence mutation to reflect sample preparation
+errors.  Each sequence read is transformed by a simple automata
+which walks the input sequence and deletes or mutates bases with the
+specified probabilities.  Inserts are chosen uniformly from ACGT,
+mutations are chosen uniformly from the bases different from that
+present in the original sequence.
+        When the --mutate option is given without an argument,
+the mutational process is turned off otherwise the default parameters
+are used.  An alternative process of mutation may be specified using the format
+
+        --mutate=1e-5:1e-6:1e-4
 
 *-n, --nfragments* nfragments [default: from coverage]::
 	Number of fragments to produce for library. By default the number of
