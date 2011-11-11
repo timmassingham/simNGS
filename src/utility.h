@@ -83,6 +83,19 @@ static inline bool bool_from_int( const int n){
     return true;
 }
 
+static int __attribute__((unused))ndigits(int n) {
+	int nd = 0;
+	if(n<0){
+		nd = 1;
+		n = -n;
+	}
+	while(n>0){
+		nd++;
+		n = n/10;
+	}
+
+	return nd;
+}
 
 
 
