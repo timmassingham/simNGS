@@ -116,7 +116,7 @@ void fprint_usage( FILE * fp){
 "Usage:\n"
 "\t" PROGNAME " [-a adapter] [-b shape1:scale1:shape2:scale2] [-c correlation] [-d] [-D prob]\n"
 "\t       [-f nimpure:ncycle:threshold] [-F factor] [-g prob] [-i filename] [-I]\n"
-"\t       [-j range:a:b] [-l lane] [-m] [-M matrix file] [-N noise file] [-n ncycle]\n"
+"\t       [-j range:a:b] [-l lane] [-M matrix file] [-N noise file] [-n ncycle]\n"
 "\t       [-o output_format] [-O outfile_prefix] [-p option] [-P phasing file] [-q quantile]\n"
 "\t       [-r mu] [-R] [-s seed] [-t tile] [-v factor ] runfile [seq.fa ... ]\n"
 "\t" PROGNAME " --help\n"
@@ -189,10 +189,9 @@ void fprint_help( FILE * fp){
 "matrix by default if the number of cycles required is fewer than that described\n"
 "in the runfile or 1 if equal.\n"
 "\n"
-"-g, --generalised, --generalized probability [default: set from mutation rate]\n"
-"\tProbability of a generalised error, a mistaken bsae not due to\n"
-"base calling error. If not given, the probability of a generalised error\n"
-"is set to the base mutation rate (see the --mutate option).\n"
+"-g, --generalised, --generalized probability [default: ~0.00015 = Q38]\n"
+"\tProbability of a generalised error, a mistaken base not due to\n"
+"base calling error.\n"
 "\n"
 "-i, --intensities filename [default: none]\n"
 "\tWrite the processed intensities generated to \"filename\".\n"
@@ -212,13 +211,6 @@ void fprint_help( FILE * fp){
 "\n"
 "-l, --lane lane [default: as runfile]\n"
 "\tSet lane number\n"
-"\n"
-"-m, --mutate, --mutate=insertion:deletion:mutation [default: 1e-5:1e-6:1e-4]\n"
-"\tSimple model of sequence mutation to reflect sample preparation errors.\n"
-"When the -m or --mutate options are given without an argument, the mutational\n"
-"process is turned off otherwise the default parameters are used.\n"
-"An alternative process of mutation may be specified using the format:\n"
-"\t--mutate=1e-5:1e-6:1e-4\n"
 "\n"
 "-M, --matrix filename [default: none]\n"
 "\tFile to read cross-talk matrix from. Not required for general\n"
@@ -291,7 +283,6 @@ static struct option longopts[] = {
     { "illumina",   no_argument,       NULL, 'I' },
     { "jumble",     required_argument, NULL, 'j' },
     { "lane",       required_argument, NULL, 'l' },
-    { "mutate",     optional_argument, NULL, 'm' },
     { "matrix",	    required_argument, NULL, 'M' },
     { "ncycle",     required_argument, NULL, 'n' },
     { "noise",      required_argument, NULL, 'N' },
@@ -356,8 +347,6 @@ typedef struct {
     uint32_t purity_cycles,purity_max;
     CSTRING intensity_fn;
     enum outformat format;
-    bool mutate;
-    real_t ins,del,mut;
     bool jumble;
     uint32_t bufflen;
     real_t a,b;
@@ -382,7 +371,7 @@ SIMOPT new_SIMOPT(void){
     opt->paired = PAIRED_TYPE_SINGLE;
     opt->desc = false;
     opt->mu = 1e-6;
-    opt->generr= -1.0;
+    opt->generr= 0.0001584893;
     opt->seed = 0;
     opt->sdfact = 1.0;
     opt->final_factor[0] = -1.0;
@@ -393,8 +382,6 @@ SIMOPT new_SIMOPT(void){
     opt->purity_max = 0;
     opt->intensity_fn = NULL;
     opt->format = OUTPUT_FASTQ;
-    opt->mutate = true;
-    opt->ins=1e-5; opt->del=1e-6; opt->mut=1e-4;
     opt->jumble = false;
     opt->bufflen = 1; opt->a=0.; opt->b=0;
     opt->adapter = nucs_from_string(ILLUMINA_ADAPTER);
@@ -449,9 +436,6 @@ void show_SIMOPT (FILE * fp, const SIMOPT simopt){
        fputs("No purity filtering.\n",fp);
     }
 
-    if(simopt->mutate){
-        fprintf(fp,"Input sequence will be mutated with ins %f, del %f, mut %f\n",simopt->ins,simopt->del,simopt->mut);
-    }
     if(simopt->jumble){
         fprintf(fp,"Intensities will be jumbled with shape parameters %f , %f (range %u)\n",simopt->a,simopt->b,simopt->bufflen);
     }
@@ -471,7 +455,7 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
     SIMOPT simopt = new_SIMOPT();
     validate(NULL!=simopt,NULL);
     
-    while ((ch = getopt_long(argc, argv, "a:b:c:dD:F:f:g:i:Ij:l:mM:n:N:o:O:p:P:q:r:Rs:t:uv:h", longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "a:b:c:dD:F:f:g:i:Ij:l:M:n:N:o:O:p:P:q:r:Rs:t:uv:h", longopts, NULL)) != -1){
         int ret;
         unsigned long int i=0,j=0;
 	real_t param1[2],param2[2];
@@ -539,22 +523,6 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
 		    break;
         case 'l':   simopt->lane = parse_uint(optarg);
                     if(simopt->lane==0){errx(EXIT_FAILURE,"Lane number must be greater than zero.");}
-                    break;
-        case 'm':   if(NULL==optarg){ // No optional argument
-			    simopt->mutate = false;
-			    simopt->ins = simopt->del = simopt->mut = 0.0;
-		    } // Optional argument present
-		    else {
-		    	ret = sscanf(optarg, real_format_str ":" real_format_str ":" real_format_str,&simopt->ins,&simopt->del,&simopt->mut);
-                    	if( ret!=3 ){ errx(EXIT_FAILURE,"Insufficient arguments for mutation.");}
-                    	if(!isprob(simopt->ins) || !isprob(simopt->del) || !isprob(simopt->mut) ){
-                        	errx(EXIT_FAILURE,"Mutation parameters not probabilities. Given: ins %f, del %f, mut %f",simopt->ins,simopt->del,simopt->mut);
-                    	}
-                    	if(simopt->ins+simopt->del+simopt->mut>1.0){
-                        	errx(EXIT_FAILURE,"Mutation parameters sum to greater than one.");
-                    	}
-                    	simopt->mutate = true;
-		    }
                     break;
         case 'M':   simopt->M = new_MAT_from_file(optarg,0,0);
 		    if(NULL==simopt->M){ errx(EXIT_FAILURE,"Failed to read cross-talk matrix from file %s",optarg); }
@@ -938,9 +906,6 @@ int main( int argc, char * argv[] ){
 	    free_Distribution(model->dist2);
 	    model->dist2 = copy_Distribution(simopt->dist2);
     }
-    if(simopt->generr==-1.0){
-	    simopt->generr = (simopt->mutate)?simopt->mut:0.0;
-    }
 
     // Dust simulation requires phasing, cross-talk and noise matrices
     if(0.0!=simopt->dustProb){
@@ -1097,11 +1062,6 @@ int main( int argc, char * argv[] ){
         while (NULL!=fp && (seq=sequence_from_fasta(fp))!=NULL){
             //show_SEQ(stderr,seq);
             if (seq->seq.nelt > 0 ){
-                if(simopt->mutate){
-                    SEQ mut = mutate_SEQ(seq,simopt->ins,simopt->del,simopt->mut);
-                    free_SEQ(seq);
-                    seq = mut;
-                }
 
                 SEQSTR seqstr = calloc(1,sizeof(*seqstr));
             	seqstr->name = copy_CSTRING(seq->name);
