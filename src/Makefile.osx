@@ -9,7 +9,7 @@ LDFLAGS =  -lm -lc -lblas -llapack
 INCFLAGS = 
 MANDIR = ../man
 DEFINES = -DHAS_REALLOCF -DUSE_BLAS
-objects =  sfmt.o matrix.o nuc.o intensities.o normal.o weibull.o sequence.o mystring.o simNGS.o utility.o random.o kumaraswamy.o elliptic.o lambda_distribution.o mixnormal.o
+objects =  sfmt.o matrix.o nuc.o intensities.o normal.o weibull.o sequence.o mystring.o simNGS.o utility.o random.o kumaraswamy.o elliptic.o lambda_distribution.o mixnormal.o normal_ziggurat.o
 
 all: simNGS simLibrary
 
@@ -18,19 +18,19 @@ test: test-normal test-intensities test-elliptic test-mixnormal
 simNGS: $(objects)
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(LDFLAGS) $(objects)
 
-simLibrary: sfmt.o simlibrary.o utility.o random.o sequence.o nuc.o mystring.o normal.o matrix.o
+simLibrary: sfmt.o simlibrary.o utility.o random.o sequence.o nuc.o mystring.o normal.o matrix.o normal_ziggurat.o
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(LDFLAGS) $^
 
-test-normal: matrix.o random.o sfmt.o
+test-normal: matrix.o random.o sfmt.o normal_ziggurat.o
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(LDFLAGS) -DTEST normal.c $^
 
 test-intensities: matrix.o random.o sfmt.o
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(LDFLAGS) -DTEST intensities.c $^
 
-test-elliptic: matrix.o random.o sfmt.o normal.o
+test-elliptic: matrix.o random.o sfmt.o normal.o normal_ziggurat.o
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(LDFLAGS) -DTEST elliptic.c $^
 
-test-mixnormal: matrix.o random.o sfmt.o normal.o
+test-mixnormal: matrix.o random.o sfmt.o normal.o normal_ziggurat.o
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(LDFLAGS) -DTEST mixnormal.c $^
 
 test-sequence: mystring.o nuc.o utility.o random.o sfmt.o

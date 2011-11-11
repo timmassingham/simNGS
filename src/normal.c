@@ -25,22 +25,10 @@
 #include "random.h"
 #include "matrix.h"
 #include "lapack.h"
+#include "normal_ziggurat.h"
 
-// Standard normal using Box-Muller method
 real_t rstdnorm( void ){
-	static real_t z;
-	static bool b = false;
-
-	if ( true==b){ b = false; return z; }
-
-	real_t u = runif();
-	real_t v = runif();
-
-	real_t r = sqrt( -2.0 * log(u) );
-	z = r * cos(2.0*M_PI*v);
-	b = true;
-
-	return r*sin(2.0*M_PI*v);
+	return rstdnorm_zig();
 }
 
 real_t dstdnorm( const real_t x, const bool logd){
