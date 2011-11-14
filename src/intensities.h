@@ -48,13 +48,13 @@ MODEL trim_MODEL(const uint32_t ncycle, real_t final_factor[4], const MODEL mode
 MODEL new_MODEL_from_fp( FILE * fp );
 MODEL new_MODEL_from_file( const CSTRING filename);
 
-MAT generate_pure_intensities ( const real_t varfact, const real_t lambda, const ARRAY(NUC) seq, const ARRAY(NUC) adapter, const uint32_t ncycle, const MAT * chol, const real_t dustProb, const MAT invM, const MAT invP, const MAT N, MAT ints);
+MAT generate_pure_intensities ( const real_t varfact, const real_t lambda, const ARRAY(NUC) seq, const ARRAY(NUC) adapter, const uint32_t ncycle, const MAT * chol, const real_t dustProb, const MAT invA, const MAT N, MAT ints);
 MAT likelihood_cycle_intensities ( const real_t varfact, real_t mu, const real_t lambda, const MAT ints, const MAT invchol[], MAT like);
 void fprint_intensities(FILE * fp, const char * prefix, const MAT ints, const bool last);
 ARRAY(NUC) call_by_maximum_likelihood(const MAT likelihood, ARRAY(NUC) calls);
 ARRAY(PHREDCHAR) quality_from_likelihood(const MAT likelihood, const ARRAY(NUC) calls, const real_t generr, const bool doIllumina, ARRAY(PHREDCHAR) quals);
 uint32_t number_inpure_cycles( const MAT intensities, const real_t threshold, const uint32_t ncycle);
 
-MAT unprocess_intensities(const MAT intensities, const MAT M_t, const MAT P_t, const MAT N, MAT p);
+MAT unprocess_intensities(const MAT intensities, const MAT A_t, const MAT N, MAT p);
 
 #endif

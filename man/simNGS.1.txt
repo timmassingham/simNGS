@@ -9,10 +9,10 @@ Illumina sequencing platform
 
 SYNOPSIS
 --------
-*simNGS*  [-a adapter] [-b shape1:scale1:shape2:scale2] [-c correlation] [-d]
+*simNGS*  [-a adapter] [-A file] [-b shape1:scale1:shape2:scale2] [-c correlation] [-d]
           [-D prob] [-F factor] [-f nimpure:ncycle:threshold] [-g prob] 
-          [-i filename] [-I] [-j range:a:b] [-l lane] [-M file] [-n ncycle] [-N file] 
-          [-o output_format] [-p option] [-P file] [-q quantile] [-r mu] [-R] 
+          [-i filename] [-I] [-j range:a:b] [-l lane] [-n ncycle] [-N file] 
+          [-o output_format] [-p option] [-q quantile] [-r mu] [-R] 
           [-s seed] [-t tile] [-v factor ] runfile [seq.fa ... ]
 
 
@@ -58,6 +58,10 @@ sequence is padded with ambiguity characters for the remaining cycles.
 of cycles required, reflecting the adpater sequence used for sample
 preparaton. A null adapter (i.e. pad with ambiguity characters) can be
 specified by -a ""
+
+*-A, --interaction* filename [default: none]::
+        File to read interaction matrix from. Not required for general
+simulation of sequence and qualities.
 
 *-b, --brightness* shape1:scale1:shape2:scale2 [default: as runfile]::
 Set parameters for the distribution of cluster brightness. The cluster 
@@ -141,10 +145,6 @@ last <range> are mixed with each other; if there where less than
 greater than zero but need not be a number valid for a real machine.
 
 
-*-M, --matrix* filename [default: none]::
-	File to read cross-talk matrix from. Not required for general
-simulation of sequence and qualities.
-
 *-n, --ncycle* ncycle [default: as runfile]::
         Number of cycles to generate likelihoods for, up to maximum 
 allowed in the runfile. If more cycles are asked for than allowed, a 
@@ -182,10 +182,6 @@ ignored. The covariance matrices for the ends of a paired-end run were estimated
 and stored separately, implying an assumption of independence between the two
 ends. The brightness of the cluster is assumed to be equal for both ends, which
 can be changed using the *--correlation* option.
-
-*-P, --phasing* filename [default: none]::
-	File to read phasing matrix from. Not required for general
-simulation of sequence and qualities.
 
 *-q, --quantile* quantile [default: 0]::
         Quantile below which cluster brightness is discarded and 

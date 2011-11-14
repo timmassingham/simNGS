@@ -337,7 +337,7 @@ MODEL new_MODEL_from_file( const CSTRING filename ){
 MAT generate_pure_intensities ( 
     const real_t sdfact, const real_t lambda, const ARRAY(NUC) seq, 
     const ARRAY(NUC) adapter, const uint32_t ncycle, const MAT * chol, 
-    const real_t dustProb, const MAT invM, const MAT invP, const MAT N, MAT ints){
+    const real_t dustProb, const MAT invA, const MAT N, MAT ints){
     validate(NULL!=seq.elt,NULL);
     validate(NULL!=chol,NULL);
     if(NULL==ints){
@@ -368,10 +368,10 @@ MAT generate_pure_intensities (
 	if(u<dustProb){
 	    const int cy = (int)(ncycle * u / dustProb);
 	    const real_t dustval = lambda*10.0 - N->x[cy*NBASE+1];
-	    for(int i=0 ; i<ncycle ; i++){
-	        for ( int j=0 ; j<NBASE ; j++){
-		    ints->x[i*NBASE+j] += dustval * invM->x[4+j] * invP->x[i*ncycle+cy];
-		}
+	    const int dustIdx = cy*4+1;
+	    const int ld = ncycle*NBASE;
+	    for(int i=0 ; i<ld ; i++){
+		    ints->x[i] += dustval * invA->x[dustIdx*ld+i];
 	    }
 	}
     }
@@ -570,36 +570,25 @@ uint32_t number_inpure_cycles( const MAT intensities, const real_t threshold, co
  * Produce raw intensities from simulated processed intensities.
  * Based on process_intensities from AYB
  */
-MAT unprocess_intensities(const MAT intensities, const MAT M_t, const MAT P_t, const MAT N, MAT p){
+MAT unprocess_intensities(const MAT intensities, const MAT A_t, const MAT N, MAT p){
     validate(NULL!=intensities,NULL);
-    validate(NULL!=M_t,NULL);
-    validate(NULL!=P_t,NULL);
+    validate(NULL!=A_t,NULL);
     validate(NULL!=N,NULL);
     
-    const uint_fast32_t ncycle = P_t->nrow;
+    const uint_fast32_t ncycle = N->ncol;
+    const uint_fast32_t ld = A_t->nrow;
     if(NULL==p){
         p = new_MAT(NBASE,ncycle);
         validate(NULL!=p,NULL);
     }
-    bzero(p->x,p->nrow * p->ncol * sizeof(real_t));
 
-    for( uint_fast32_t icol=0 ; icol<ncycle ; icol++){    // Columns of Intensity
-        real_t dp[NBASE] = {0,0,0,0};
-        for( uint_fast32_t chan=0 ; chan<NBASE ; chan++){ // Channels
-            for ( uint_fast32_t base=0 ; base<NBASE ; base++){  // Bases (cols of M, rows of Minv_t)
-                dp[chan] += M_t->x[chan*NBASE+base] * intensities->x[icol*NBASE+base];
-            }
-        }
-        for ( uint_fast32_t pcol=0 ; pcol<ncycle ; pcol++){ // Columns of p
-            const real_t tmp = P_t->x[icol*ncycle+pcol];
-            for( uint_fast32_t chan=0 ; chan<NBASE ; chan++){
-                p->x[pcol*NBASE+chan] += tmp * dp[chan];
-            }
-        }
-        for ( uint_fast32_t chan=0 ; chan<NBASE ; chan++){
-            p->x[icol*NBASE+chan] += N->x[icol*NBASE+chan];
-        }
+    for( uint_fast32_t i=0 ; i<ld ; i++){
+	p->x[i] = N->x[i];
+	for ( uint_fast32_t j=0 ; j<ld ; j++){
+            p->x[i] += A_t->x[i*ld+j] * intensities->x[j];
+	}
     }
+
     return p;
 }
 
