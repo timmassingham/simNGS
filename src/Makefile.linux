@@ -16,10 +16,10 @@ all: simNGS simLibrary
 test: test-normal test-intensities test-elliptic test-mixnormal
 
 simNGS: $(objects)
-	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(LDFLAGS) $(objects)
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(objects) $(LDFLAGS)
 
 simLibrary: sfmt.o simlibrary.o utility.o random.o sequence.o nuc.o mystring.o normal.o matrix.o normal_ziggurat.o
-	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(LDFLAGS) $^
+	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $^ $(LDFLAGS)
 
 test-normal: matrix.o random.o sfmt.o normal_ziggurat.o
 	$(CC) $(DEFINES) $(CFLAGS) $(INCFLAGS) -o ../bin/$@ $(LDFLAGS) -DTEST normal.c $^
