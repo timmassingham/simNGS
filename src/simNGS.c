@@ -37,12 +37,13 @@
 #include "kumaraswamy.h"
 #include "lambda_distribution.h"
 
-
+#define Q_(A) #A
+#define QUOTE(A) Q_(A)
 #define DEFAULT_DUST_PROB 0.0
 #define STRINGIFY(A) #A
 #define ILLUMINA_ADAPTER "AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGAT"
 #define PROGNAME "simNGS"
-#define PROGVERSION "1.5.1"
+#define PROGVERSION "1.5.2"
 
 enum paired_type { PAIRED_TYPE_SINGLE=0, PAIRED_TYPE_CYCLE, PAIRED_TYPE_PAIRED };
 char * paired_type_str[] = {"single","cycle","paired"};
@@ -159,8 +160,11 @@ void fprint_help( FILE * fp){
 "\n"
 "-a, --adapter sequence [default: " ILLUMINA_ADAPTER "]\n"
 "\tSequence to pad reads with if they are shorter than the number of\n"
-"cycles required, reflecting the adpater sequence used for sample preparaton.\n"
-"A null adapter (i.e. pad with ambiguity characters) can be specified by -a \"\"\n" 
+"cycles required, reflecting the adapter sequence used for sample preparation.\n"
+"Different adapters for each end can be specified by -a ADAPTER1:ADAPTER2\n"
+"The default is for both adapters to be the same (-a ADAPTER).\n"
+"A null adapter (i.e. pad with ambiguity characters) can be specified by\n"
+"--adapter (no argument)\n" 
 "\n" 
 "-A, --interaction filename [default: none]\n"
 "\tFile to read interaction matrix from. Not required for general\n"
@@ -271,7 +275,7 @@ void fprint_help( FILE * fp){
 }
 
 static struct option longopts[] = {
-    { "adapter",    required_argument, NULL, 'a'},
+    { "adapter",    optional_argument, NULL, 'a'},
     { "brightness", required_argument, NULL, 'b' },
     { "correlation", required_argument, NULL, 'c' },
     { "describe",   no_argument,       NULL, 'd' },
@@ -350,7 +354,8 @@ typedef struct {
     bool jumble;
     uint32_t bufflen;
     real_t a,b;
-    ARRAY(NUC) adapter;
+    ARRAY(NUC) adapter1;
+    ARRAY(NUC) adapter2;
     real_t dustProb;
     MAT A,N;
     MAT invA,At;
@@ -384,7 +389,8 @@ SIMOPT new_SIMOPT(void){
     opt->format = OUTPUT_FASTQ;
     opt->jumble = false;
     opt->bufflen = 1; opt->a=0.; opt->b=0;
-    opt->adapter = nucs_from_string(ILLUMINA_ADAPTER);
+    opt->adapter1 = nucs_from_string(ILLUMINA_ADAPTER);
+    opt->adapter2 = nucs_from_string(ILLUMINA_ADAPTER);
     opt->dustProb = 0.0;
     opt->A = opt->N = NULL;
     opt->invA = NULL;
@@ -400,7 +406,8 @@ SIMOPT new_SIMOPT(void){
 void free_SIMOPT(SIMOPT opt){
     validate(NULL!=opt,);
     free(opt->intensity_fn);
-    free_ARRAY(NUC)(opt->adapter);
+    free_ARRAY(NUC)(opt->adapter1);
+    free_ARRAY(NUC)(opt->adapter2);
     safe_free(opt);
 }
 
@@ -441,8 +448,10 @@ void show_SIMOPT (FILE * fp, const SIMOPT simopt){
     }
 
     fputs("Reads will be padded with adapter sequence if necessary.\n",fp);
-    show_ARRAY(NUC)(fp,simopt->adapter,"",0);
+    fputs("End 1: ",fp); show_ARRAY(NUC)(fp,simopt->adapter1,"",0);
+    fputs("End 2: ",fp); show_ARRAY(NUC)(fp,simopt->adapter2,"",0);
     fputc('\n',fp);
+
 
     fprintf(fp,"Writing %s to output.\n",output_format_str[simopt->format]);
     if(NULL!=simopt->intensity_fn){
@@ -456,12 +465,29 @@ SIMOPT parse_arguments( const int argc, char * const argv[] ){
     validate(NULL!=simopt,NULL);
     
     while ((ch = getopt_long(argc, argv, "a:A:b:c:dD:F:f:g:i:Ij:l:M:n:N:o:O:p:P:q:r:Rs:t:uv:h", longopts, NULL)) != -1){
-        int ret;
+        int ret=0;
         unsigned long int i=0,j=0;
 	real_t param1[2],param2[2];
         switch(ch){
-        case 'a':   free_ARRAY(NUC)(simopt->adapter);
-                    simopt->adapter = nucs_from_string(optarg);
+        case 'a':   free_ARRAY(NUC)(simopt->adapter1); simopt->adapter1.elt=NULL;
+		    free_ARRAY(NUC)(simopt->adapter2); simopt->adapter2.elt=NULL;
+		    if(NULL!=optarg){
+			// Adapter string given
+			char * stringp = optarg;
+			simopt->adapter1 = nucs_from_string(strsep(&stringp, ":"));
+			if(NULL!=stringp){
+				// Second adapter is given
+				simopt->adapter2 = nucs_from_string(stringp);
+			}
+		    } else {
+			// No adapter string, use ambiguities
+			simopt->adapter1 = nucs_from_string("");
+		    }
+		    // If only one adapter given, copy to second adapter.
+		    if(NULL==simopt->adapter2.elt){
+fprintf(stderr,"Copying adapter\n");
+                    	simopt->adapter2 = copy_ARRAY(NUC)(simopt->adapter1);
+		    }
                     break;
 	case 'A':   simopt->A = new_MAT_from_file(optarg,0,0);
                     if(NULL==simopt->A){ errx(EXIT_FAILURE,"Failed to read phasing matrix from file %s",optarg); }
@@ -1064,13 +1090,13 @@ int main( int argc, char * argv[] ){
             	seqstr->lambda2 = lambda.x2;
 
             	// Generate intensities
-            	seqstr->int1 = generate_pure_intensities(simopt->sdfact,lambda.x1,seqstr->seq,simopt->adapter,model->ncycle,model->chol1_cycle,simopt->dustProb,simopt->invA,simopt->N,NULL);
+            	seqstr->int1 = generate_pure_intensities(simopt->sdfact,lambda.x1,seqstr->seq,simopt->adapter1,model->ncycle,model->chol1_cycle,simopt->dustProb,simopt->invA,simopt->N,NULL);
             	if ( model->paired ){
             	    seqstr->rcseq = reverse_complement(seqstr->seq);
 		    CIGLIST revcig = reverse_cigar(seq->cigar);
                     seqstr->cigar2 = sub_cigar(revcig,model->ncycle);
 		    free_CIGLIST(revcig);
-                    seqstr->int2 = generate_pure_intensities(simopt->sdfact,lambda.x2,seqstr->rcseq,simopt->adapter,model->ncycle,model->chol2_cycle,simopt->dustProb,simopt->invA,simopt->N,NULL);
+                    seqstr->int2 = generate_pure_intensities(simopt->sdfact,lambda.x2,seqstr->rcseq,simopt->adapter2,model->ncycle,model->chol2_cycle,simopt->dustProb,simopt->invA,simopt->N,NULL);
             	}
 		free_SEQ(seq); seq=NULL;
             	// Store in buffer

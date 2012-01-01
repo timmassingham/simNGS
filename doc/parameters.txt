@@ -13,10 +13,13 @@
 
 ** Detailed description
 
--a, --adapter sequence [default: AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGAT ]
+-a, --adapter sequence [default: AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGAT]
 	Sequence to pad reads with if they are shorter than the number of
-cycles required, reflecting the adpater sequence used for sample preparaton.
-A null adapter (i.e. pad with ambiguity characters) can be specified by -a ""
+cycles required, reflecting the adapter sequence used for sample preparation.
+Different adapters for each end can be specified by -a ADAPTER1:ADAPTER2
+The default is for both adapters to be the same (-a ADAPTER).
+A null adapter (i.e. pad with ambiguity characters) can be specified by
+--adapter (no argument)
 
 
 -b, --brightness shape,scale [default: as runfile]
