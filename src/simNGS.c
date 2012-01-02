@@ -930,7 +930,7 @@ int main( int argc, char * argv[] ){
 	    model->dist2 = copy_Distribution(simopt->dist2);
     }
 
-    // Dust simulation requires phasing, cross-talk and noise matrices
+    // Dust simulation requires interaction and noise matrices
     if(0.0!=simopt->dustProb){
         if(NULL==simopt->A || NULL==simopt->N){
 	    errx(EXIT_FAILURE,"Interaction and noise matrices required to simulate dust");
