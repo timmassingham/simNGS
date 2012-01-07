@@ -941,7 +941,7 @@ int main( int argc, char * argv[] ){
             errx(EXIT_FAILURE,"Interaction and noise matrices required to dump raw intensities");
 	}
     }
-    // Check that M, P and N dimensions are consistent with run file
+    // Check that A and N dimensions are consistent with run file
     if(NULL!=simopt->A){
         if(NBASE*model->ncycle!=simopt->A->nrow || NBASE*model->ncycle!=simopt->A->ncol){
             errx(EXIT_FAILURE,"Interaction matrix has wrong dimension, got %d,%d",simopt->A->nrow,simopt->A->ncol);
