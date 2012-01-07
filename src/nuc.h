@@ -58,6 +58,7 @@ NUC nuc_from_char( const char c);
 char char_from_nuc(const NUC nuc);
 ARRAY(NUC) nucs_from_string( const char * nucstr );
 NUC complement(const NUC nuc);
+ARRAY(NUC) complement_array(const ARRAY(NUC) nucs);
 ARRAY(NUC) reverse_complement(const ARRAY(NUC) nucs);
 ARRAY(PHREDCHAR) reverse_quality(const ARRAY(PHREDCHAR) quals);
 PHREDCHAR phredchar_from_char( const char c);

@@ -93,6 +93,16 @@ NUC complement(const NUC nuc){
     return NUC_AMBIG;
 }
 
+ARRAY(NUC) complement_array(const ARRAY(NUC) nucs){
+    validate(NULL!=nucs.elt,null_ARRAY(NUC));
+    ARRAY(NUC) new_nuc = new_ARRAY(NUC)(nucs.nelt);
+    validate(NULL!=new_nuc.elt,new_nuc);
+    for ( uint32_t i=0 ; i<nucs.nelt ; i++){
+        new_nuc.elt[i] = complement(nucs.elt[i]);
+    }
+    return new_nuc;
+}
+
 ARRAY(NUC) reverse_complement(const ARRAY(NUC) nucs){
     validate(NULL!=nucs.elt,null_ARRAY(NUC));
     ARRAY(NUC) new_nuc = new_ARRAY(NUC)(nucs.nelt);
