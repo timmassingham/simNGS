@@ -17,8 +17,10 @@ at each cycle and calculates likelihoods for all possible base calls.
 	simNGS is written for BSD-style Unices according to the C99 standard and
 should be relatively portable. Make files for both generic Linux and Mac Os-X 
 in the the src/ directory.
-	The blas and lapack libraries for matrix operations and linear algebra
-must be installed and in the standard library path.
+	The BLAS and LAPack libraries for matrix operations and linear algebra
+must be installed and in the standard library path.  To compile from source,
+the BLAS and LAPack header files (provided by the blas-devel and lapack-dev 
+packages on most Linux systems) must also be installed.
 
 Compiling:
 	cd src
