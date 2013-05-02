@@ -53,7 +53,7 @@ static void * reallocf(void * ptr, size_t t){
 bool isprob( const real_t p);
 
 #define safe_free(A) { if(NULL!=(A)){free(A);} (A)=NULL; }
-#define SWAP(A,B) { typeof(A) tmp = A; A=B; B=tmp; }
+#define SWAP(A,B) { __typeof__(A) tmp=A; A=B; B=tmp; }
 
 
 #ifdef FAILEARLY

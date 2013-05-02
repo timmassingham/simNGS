@@ -297,17 +297,23 @@ cleanup:
 }
 
 
-void show_SEQ( FILE * fp, const SEQ seq){
+void show_SEQ( FILE * fp, const SEQ seq, CSTRING fmt){
    validate(NULL!=fp,);
    validate(NULL!=seq,);
 
    (!hasQual(seq)) ? fputc('>',fp) : fputc('@',fp);
    if(NULL!=seq->name){ fputs(seq->name,fp); fputc(' ',fp);}
-   show_CIGLIST(fp,seq->cigar);
+   
+   // only print CIGAR if we are writing on original SIMNGS read format
+   if(!strncasecmp(fmt,"orig",4)) 
+        show_CIGLIST(fp,seq->cigar);
+
    fputc('\n',fp);
-   for ( uint32_t i=0 ; i<seq->length ; i++){
-       show_NUC(fp,seq->seq.elt[i]);
-   }
+//   if(!strncasecmp(fmt,"orig",4)) {
+       for ( uint32_t i=0 ; i<seq->length ; i++){
+           show_NUC(fp,seq->seq.elt[i]);
+       }
+//   }
    fputc('\n',fp);
    if(hasQual(seq)){
       fputc('+',fp);
@@ -547,7 +553,7 @@ SEQ sub_SEQ( const SEQ seq, const uint32_t loc, const uint32_t len){
     }
     // Cigar string
     free_CIGLIST(subseq->cigar);
-    subseq->cigar = sub_cigar(seq->cigar,len);
+    //subseq->cigar = sub_cigar(seq->cigar,len);
 
     return subseq;
 }
@@ -559,13 +565,16 @@ int main(int argc, char * argv[]){
     
     SEQ seq=NULL;
     while( NULL!=(seq=sequence_from_file(fp)) ){
-        show_SEQ(stdout,seq);
-	SEQ mutseq = mutate_SEQ(seq,0.02,0.02,0.02);
-	show_SEQ(stdout,mutseq);
+        show_SEQ(stdout,seq, NULL);
+        
+        SEQ mutseq = mutate_SEQ(seq,0.02,0.02,0.02);
+        show_SEQ(stdout,mutseq, NULL);
+        
         SEQ rcseq = reverse_complement_SEQ(mutseq);
-        show_SEQ(stdout,rcseq);
+        show_SEQ(stdout,rcseq, NULL);
+        
         free_SEQ(rcseq);
-	free_SEQ(mutseq);
+        free_SEQ(mutseq);
         free_SEQ(seq);
     }
     return EXIT_SUCCESS;

@@ -43,12 +43,12 @@
 #define STRINGIFY(A) #A
 #define ILLUMINA_ADAPTER "AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGAT"
 #define PROGNAME "simNGS"
-#define PROGVERSION "1.6"
+#define PROGVERSION "1.7"
 
 enum paired_type { PAIRED_TYPE_SINGLE=0, PAIRED_TYPE_CYCLE, PAIRED_TYPE_PAIRED };
 char * paired_type_str[] = {"single","cycle","paired"};
-enum outformat { OUTPUT_LIKE=0, OUTPUT_FASTA, OUTPUT_FASTQ };
-const char * output_format_str[] = { "likelihood", "fasta", "fastq" };
+enum outformat { OUTPUT_LIKE=0, OUTPUT_FASTA, OUTPUT_FASTQ, OUTPUT_CASAVA };
+const char * output_format_str[] = { "likelihood", "fasta", "fastq", "casava" };
 
 
 ARRAY(NUC) ambigseq = {NULL,0};
@@ -234,7 +234,7 @@ void fprint_help( FILE * fp){
 "\n"
 "-o, --output format [default: fastq]\n"
 "\tFormat in which to output results. Either \"likelihood\", \"fasta\",\n"
-"or \"fastq\".\n"
+",\"fastq\" or \"casava\".\n"
 "\n"
 "-O, --outfile prefix [default: stdout]\n"
 "\tPrefix of filenames to output results. If simulating paired-end\n"
@@ -564,6 +564,9 @@ fprintf(stderr,"Copying adapter\n");
                     else if ( strcasecmp(optarg,output_format_str[OUTPUT_FASTQ])==0 ){
                         simopt->format = OUTPUT_FASTQ;
                         if(simopt->mu==0){ simopt->mu = 1e-5;}
+                    } else if ( strcasecmp(optarg,output_format_str[OUTPUT_CASAVA])==0 ){
+                        simopt->format = OUTPUT_CASAVA;
+                        if(simopt->mu==0){ simopt->mu = 1e-5;}
                     } else {
                         errx(EXIT_FAILURE,"Unrecognised output option %s.",optarg);
                     }
@@ -730,8 +733,14 @@ void output_fastq(const SIMOPT simopt, const char * seqname, const CIGLIST cigar
 		output_fastq_sub(simopt->outfp[0],simopt,seqname,cigar1,"",called1,called2);
 		break;
 	case PAIRED_TYPE_PAIRED:
-		output_fastq_sub(simopt->outfp[0],simopt,seqname,cigar1,use_suff?"/1":"",called1,NULL);
-		output_fastq_sub(simopt->outfp[1],simopt,seqname,cigar2,use_suff?"/2":"",called2,NULL);
+                if (simopt->format == OUTPUT_CASAVA) {
+                    output_fastq_sub(simopt->outfp[0],simopt,seqname,null_CIGLIST,"",called1,NULL);
+                    output_fastq_sub(simopt->outfp[1],simopt,seqname,null_CIGLIST,"",called2,NULL);
+                }
+                else {
+		    output_fastq_sub(simopt->outfp[0],simopt,seqname,cigar1,use_suff?"/1":"",called1,NULL);
+		    output_fastq_sub(simopt->outfp[1],simopt,seqname,cigar2,use_suff?"/2":"",called2,NULL);
+                }
 		break;
 	default:
 		errx(EXIT_FAILURE,"Unrecognised case %s (%s:%d)",__func__,__FILE__,__LINE__);
@@ -756,6 +765,9 @@ void output_results(FILE * intout, const SIMOPT simopt, const char * seqname, co
            output_fasta(simopt,seqname,cigar1,cigar2,called1,called2);
            break;
        case OUTPUT_FASTQ:
+           output_fastq(simopt,seqname,cigar1,cigar2,called1,called2);
+           break;
+       case OUTPUT_CASAVA:
            output_fastq(simopt,seqname,cigar1,cigar2,called1,called2);
            break;
        default:
@@ -1029,6 +1041,7 @@ int main( int argc, char * argv[] ){
 	    switch(simopt->format){
 		    case OUTPUT_LIKE: strcpy(fn+offset,".like"); offset+=5; break;
 		    case OUTPUT_FASTQ: strcpy(fn+offset,".fq"); offset+=3; break;
+		    case OUTPUT_CASAVA: strcpy(fn+offset,".fq"); offset+=3; break;
 		    case OUTPUT_FASTA: strcpy(fn+offset,".fa"); offset+=3; break;
 	    }
 	    *(fn+offset) = '\0';
@@ -1082,8 +1095,15 @@ int main( int argc, char * argv[] ){
             	seqstr->name = copy_CSTRING(seq->name);
             	seqstr->seq = copy_ARRAY(NUC)(seq->seq);
             	seqstr->paired = model->paired;
-		seqstr->cigar1 = sub_cigar(seq->cigar,model->ncycle);
-		seqstr->cigar2 = null_CIGLIST;
+
+                // No cigar strings for standard CASAVA 1.8 FASTQ format
+                if(simopt->format == OUTPUT_CASAVA) {
+                    seqstr->cigar2 = null_CIGLIST;
+                    seqstr->cigar1 = null_CIGLIST;
+                } else {
+                    seqstr->cigar1 = sub_cigar(seq->cigar,model->ncycle);
+                    seqstr->cigar2 = null_CIGLIST;
+                }
             	// Pick copula
             	struct pair_double lambda = correlated_distribution(simopt->threshold,simopt->corr,model->dist1,model->dist2);
             	seqstr->lambda1 = lambda.x1;
@@ -1091,7 +1111,7 @@ int main( int argc, char * argv[] ){
 
             	// Generate intensities
             	seqstr->int1 = generate_pure_intensities(simopt->sdfact,lambda.x1,seqstr->seq,simopt->adapter1,model->ncycle,model->chol1_cycle,simopt->dustProb,simopt->invA,simopt->N,NULL);
-            	if ( model->paired ){
+            	if ( model->paired){
             	    seqstr->rcseq = reverse_complement(seqstr->seq);
 		    CIGLIST revcig = reverse_cigar(seq->cigar);
                     seqstr->cigar2 = sub_cigar(revcig,model->ncycle);

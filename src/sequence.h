@@ -62,7 +62,7 @@ void free_SEQ( SEQ seq );
 SEQ new_SEQ(const uint32_t len, const bool has_qual);
 SEQ sequence_from_str( const char * restrict name, const char * restrict seqstr, const char * qname, const char * restrict qualstr );
 SEQ copy_SEQ( const SEQ seq);
-void show_SEQ(FILE * fp, const SEQ seq);
+void show_SEQ(FILE * fp, const SEQ seq, CSTRING fmt);
 
 // Creating
 SEQ sequence_from_file  ( FILE * fp);

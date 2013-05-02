@@ -10,7 +10,7 @@ SYNOPSIS
 --------
 *simLibrary* 	[-b bias] [-c cov] [-g lower:upper] [-i insertlen]
 	        [--mutate [insertion:deletion:mutation]] [-m multiplier_file] 
-		[-n nfragments] -p [-r readlen] [-s strand] [-v variance] 
+		[-n nfragments] [-o format ] -p [-r readlen] [-s strand] [-v variance] 
 		[-x coverage] [--seed seed] seq1.fa ...
 
 
@@ -71,6 +71,14 @@ are used.  An alternative process of mutation may be specified using the format
 	Number of fragments to produce for library. By default the number of
 fragments is sufficient for the coverage given. If the number of fragments
 is set then this option takes priority.
+
+*-o, --output* format [default: fasta]::
+	The format in which the fasta name should be formated in the output.
+Options are:
+
+	'fasta'	   Original format for simLibrary
+
+	'casava'   A naming format compatible with Casava
 
 *-p, --paired* [default: true]::
 	Turn off paired-end generation. The average fragment length will be

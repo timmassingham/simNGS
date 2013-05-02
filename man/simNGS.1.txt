@@ -159,14 +159,22 @@ simulation of sequence and qualities.
 
 *-o, --output* format [default: fastq]::
         Format in which to output results. Either "likelihood", 
-"fasta" or "fastq". "likelihood" is the format specified in the file 
-README.txt, containing the likelihoods of all possible base-calls. 
+"fasta", "fastq", or "casava". 
+
+"likelihood" is the format specified in the file 
+README.txt, containing the likelihoods of all possible base-calls.
+
 "fasta" gives the called sequences in FASTA format, paired-end reads 
 being concatenated together.
-Similar "fastq" outputs sequences and qualities in fastq format; 
+
+"fastq" outputs sequences and qualities in fastq format; 
 unless over-ridden setting the output format to "fastq" sets mu to 
 1e-5 to better calibrate the qualities for polymerase error. 
 See *--robust* for details.
+
+"casava" is as the "fastq" option but formats the sequence names in a
+manner compatible with Casava.
+
 
 *-p, --paired* option [default: single]::
         Treat run as paired-end. Valid options are: "single", "paired", "cycle".

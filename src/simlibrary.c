@@ -32,21 +32,34 @@ enum strand_opt { STRAND_RANDOM, STRAND_SAME, STRAND_OPPOSITE };
 #define Q_(A) #A
 #define QUOTE(A) Q_(A)
 #define DEFAULT_COV         0.055
+#define DEFAULT_OUT         "fasta"
 #define DEFAULT_INSERT      400
 #define DEFAULT_NCYCLE      45
 #define DEFAULT_COVERAGE    2.0
 #define DEFAULT_BIAS        0.5
 #define PROGNAME "simLibrary"
-#define PROGVERSION "1.3"
+#define PROGVERSION "1.4"
 
 uint32_t nfragment_from_coverage(const uint32_t genlen, const real_t coverage, const uint32_t readlen, const bool paired){
     const uint32_t bases_per_read = paired?(2*readlen):readlen;
     return (uint32_t)(0.5+(genlen*coverage)/bases_per_read);
 }
 
-CSTRING fragname(const CSTRING name, const unsigned int idx, const char strand, const uint32_t loc, const uint32_t fraglen){
-    char * str;
-    asprintf(&str,"Frag_%u %s (Strand %c Offset %u--%u)",idx,name,strand,loc+1,loc+fraglen);
+CSTRING fragname(const CSTRING name, const unsigned int idx, const char strand, const uint32_t loc, const uint32_t fraglen, CSTRING fmt){
+    char * str = NULL;
+    if(!strcmp(fmt, "casava")){
+        // CASAVA 1.8 format:
+        //
+        // @EAS139:136:FC706VJ:2:5:1000:12850  1:Y:18:ATCACG
+        // 
+        // Information like tiles coordinates is made up by loc & fraglen,
+        // so it does not make much sense semantically. The intention is that programs
+        // expecting a certain header structure do not bail out unnecesarily.
+        asprintf(&str,"SIMNGS:%u:fcsimNGS:1:1:1:1 1:N:2:GATTACA", idx);
+    } else if (!strcmp(fmt, "fasta")){
+        // Old custom format by original SIMNGS's simlibrary
+        asprintf(&str,"Frag_%u %s (Strand %c Offset %u--%u)",idx,name,strand,loc+1,loc+fraglen);
+    }
     return str;
 }
 
@@ -60,7 +73,7 @@ void fprint_usage( FILE * fp){
 "Usage:\n"
 "\t" PROGNAME " [-b bias] [-c cov] [-g lower:upper] [-i insertlen]\n"
 "\t           [-m multiplier_file] [-n nfragments] -p [-r readlen] [-s strand]\n"
-"\t           [-v variance] [-x coverage] [--seed seed] seq1.fa ...\n"
+"\t           [-v variance] [-x coverage] [-o output] [--seed seed] seq1.fa ...\n"
 "\t" PROGNAME " --help\n"
 "\t" PROGNAME " --licence\n"
 "\t" PROGNAME " --version\n"
@@ -106,6 +119,11 @@ void fprint_help( FILE * fp){
 "log-normal distribution by cov = exp(var)-1. If the variance option is set,\n"
 "it takes presidence.\n"
 "\n"
+"-o, --output format [default: " QUOTE(DEFAULT_OUT) "]\n"
+"Formats supported are \"fasta\" for original headers used by SIMNGS's simlibrary\n"
+"and \"casava\", for a more standard (CASAVA 1.8) format as shown in:\n"
+"http://en.wikipedia.org/wiki/FASTQ_format.\n"
+"\n"
 "-g, --gel_cut lower:upper [default: no cut]\n"
 "\tStrict lower and upper boundaries for fragment length, representing a\n"
 "\"cut\" of a gel. The default is no boundaries.\n"
@@ -133,6 +151,12 @@ void fprint_help( FILE * fp){
 "\tNumber of fragments to produce for library. By default the number of\n"
 "fragments is sufficient for the coverage given. If the number of fragments\n"
 "is set then this option takes priority.\n"
+"\n"
+"-o, --output format [default: fasta]\n"
+"\tThe format in which the fasta name should be formated in the output.\n"
+"Options are:\n"
+"\t'fasta'\tOriginal format for simLibrary."
+"\t'casava'\tA naming format compatible with Casava."
 "\n"
 "-p, --paired [default: true ]\n"
 "\tTurn off paired-end generation. The average fragment length will be\n"
@@ -166,6 +190,7 @@ void fprint_help( FILE * fp){
 static struct option longopts[] = {
     { "bias",       required_argument, NULL, 'b'},
     { "cov",        required_argument, NULL, 'c'},
+    { "output",     required_argument, NULL, 'o'},
     { "gel_cut",    required_argument, NULL, 'g'},
     { "insert",     required_argument, NULL, 'i'},
     { "mutate",	    optional_argument, NULL, 3},
@@ -188,6 +213,7 @@ typedef struct {
     bool paired;
     uint32_t seed;
     real_t variance,cov,strand_bias,coverage;
+    CSTRING output;
     enum strand_opt strand;
     FILE * multiplier_fp;
     real_t cut_lower, cut_upper;
@@ -204,6 +230,7 @@ OPT new_OPT(void){
     opt->variance = 0;
     opt->cov = DEFAULT_COV;
     opt->coverage = DEFAULT_COVERAGE;
+    opt->output = DEFAULT_OUT;
     opt->nfragment = 0;
     opt->paired = true;
     opt->strand_bias = DEFAULT_BIAS;
@@ -249,7 +276,7 @@ OPT parse_options(const int argc, char * const argv[] ){
     OPT opt = new_OPT();
     validate(NULL!=opt,NULL);
     
-    while ((ch = getopt_long(argc, argv, "b:c:g:i:m:n:pr:s:v:x:h", longopts, NULL)) != -1){
+    while ((ch = getopt_long(argc, argv, "b:c:o:g:i:m:n:pr:s:v:x:h", longopts, NULL)) != -1){
         switch(ch){
         case 'b':
             opt->strand_bias = parse_real(optarg);
@@ -259,6 +286,10 @@ OPT parse_options(const int argc, char * const argv[] ){
             opt->cov = parse_real(optarg);
             if(opt->cov<0.0){errx(EXIT_FAILURE,"Coefficient Of Variance of for insert size should be non-zero");}
             break;
+        case 'o':
+                if(!strncasecmp(optarg,"fasta",5)){ opt->output = "fasta"; break;}
+                if(!strncasecmp(optarg,"casava",6)){ opt->output = "casava"; break;}
+                errx(EXIT_FAILURE,"Unrecognised choice \"%s\" for --output format",optarg); break;
 	case 'g':
 	    ret = sscanf(optarg, real_format_str ":" real_format_str ,&opt->cut_lower,&opt->cut_upper);
 	    if(ret<1){
@@ -426,12 +457,12 @@ int main ( int argc, char * argv[]){
 		free_SEQ(fragseq);
 		SEQ sampseq = (strand=='+')? copy_SEQ(mutseq) : reverse_complement_SEQ(mutseq,false);
 		free_SEQ(mutseq);
-                
-                CSTRING sampname = fragname(seq->name,i+1,strand,loc,fraglen);
+               
+                CSTRING sampname = fragname(seq->name,i+1,strand,loc,fraglen, opt->output);
 
                 free_CSTRING(sampseq->name);
                 sampseq->name = sampname;
-                show_SEQ(stdout,sampseq);
+                show_SEQ(stdout,sampseq, opt->output);
                 free_SEQ(sampseq);
                 if( (tot_fragments%100000)==99999 ){ fprintf(stderr,"\rDone: %8u",tot_fragments+1); }
             }

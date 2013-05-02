@@ -356,7 +356,7 @@ MAT generate_pure_intensities (
             ints->x[NBASE*i+seq.elt[i]] += lambda;
         } else {
             uint32_t j = i-seq.nelt;
-            if(j>=0 && j<adapter.nelt && NUC_AMBIG != adapter.elt[j]){
+            if(j<adapter.nelt && NUC_AMBIG != adapter.elt[j]){
                 ints->x[NBASE*i+adapter.elt[j]] += lambda;
             }
         }
