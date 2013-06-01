@@ -38,7 +38,7 @@ enum strand_opt { STRAND_RANDOM, STRAND_SAME, STRAND_OPPOSITE };
 #define DEFAULT_COVERAGE    2.0
 #define DEFAULT_BIAS        0.5
 #define PROGNAME "simLibrary"
-#define PROGVERSION "1.4"
+#define PROGVERSION "1.4.1"
 
 uint32_t nfragment_from_coverage(const uint32_t genlen, const real_t coverage, const uint32_t readlen, const bool paired){
     const uint32_t bases_per_read = paired?(2*readlen):readlen;
