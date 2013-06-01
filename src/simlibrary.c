@@ -458,7 +458,7 @@ int main ( int argc, char * argv[]){
 		SEQ sampseq = (strand=='+')? copy_SEQ(mutseq) : reverse_complement_SEQ(mutseq,false);
 		free_SEQ(mutseq);
                
-                CSTRING sampname = fragname(seq->name,i+1,strand,loc,fraglen, opt->output);
+                CSTRING sampname = fragname(seq->name,tot_fragments+1,strand,loc,fraglen, opt->output);
 
                 free_CSTRING(sampseq->name);
                 sampseq->name = sampname;
